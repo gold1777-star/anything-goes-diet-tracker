@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Anything Goes Diet — Companion &amp; Progress Tracker</title>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --surface: #ffffff;
+    --surface-2: #eef2f0;
+    --border: #dde5e1;
+    --text: #17251f;
+    --muted: #64756c;
+    --primary: #2f9e6f;
+    --primary-dim: #248257;
+    --primary-soft: rgba(47,158,111,0.12);
+    --accent: #e0803a;
+    --accent-soft: rgba(224,128,58,0.12);
+    --danger: #d64545;
+    --star: #f2b705;
+    --shadow: 0 2px 10px rgba(20,40,30,0.06);
+    --shadow-lg: 0 8px 30px rgba(20,40,30,0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101512;
+      --surface: #18201c;
+      --surface-2: #1f2823;
+      --border: #2b352f;
+      --text: #e7efe9;
+      --muted: #93a49a;
+      --primary: #46c288;
+      --primary-dim: #2f9e6f;
+      --primary-soft: rgba(70,194,136,0.14);
+      --accent: #f0994f;
+      --accent-soft: rgba(240,153,79,0.14);
+      --danger: #f0625f;
+      --star: #f5c518;
+      --shadow: 0 2px 10px rgba(0,0,0,0.35);
+      --shadow-lg: 0 10px 34px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101512; --surface: #18201c; --surface-2: #1f2823; --border: #2b352f;
+    --text: #e7efe9; --muted: #93a49a; --primary: #46c288; --primary-dim: #2f9e6f;
+    --primary-soft: rgba(70,194,136,0.14); --accent: #f0994f; --accent-soft: rgba(240,153,79,0.14);
+    --danger: #f0625f; --star: #f5c518; --shadow: 0 2px 10px rgba(0,0,0,0.35); --shadow-lg: 0 10px 34px rgba(0,0,0,0.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f5; --surface: #ffffff; --surface-2: #eef2f0; --border: #dde5e1;
+    --text: #17251f; --muted: #64756c; --primary: #2f9e6f; --primary-dim: #248257;
+    --primary-soft: rgba(47,158,111,0.12); --accent: #e0803a; --accent-soft: rgba(224,128,58,0.12);
+    --danger: #d64545; --star: #f2b705; --shadow: 0 2px 10px rgba(20,40,30,0.06); --shadow-lg: 0 8px 30px rgba(20,40,30,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body { padding-bottom: 64px; line-height: 1.5; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; box-shadow: var(--shadow); }
+  .header-inner { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 14px; padding: 14px 20px; }
+  .logo { display: flex; align-items: center; gap: 11px; }
+  .logo-mark { width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dim) 100%); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 17px; box-shadow: var(--shadow); flex-shrink: 0; }
+  .logo h1 { font-size: 16px; font-weight: 800; letter-spacing: 0.2px; }
+  .logo .sub { font-size: 10.5px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; font-weight: 600; }
+  .theme-toggle { margin-left: auto; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); width: 38px; height: 38px; border-radius: 10px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .theme-toggle:hover { color: var(--primary); border-color: var(--primary); }
+
+  nav { max-width: 1080px; margin: 0 auto; display: flex; gap: 3px; overflow-x: auto; padding: 8px 14px; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  .nav-btn { background: transparent; border: none; color: var(--muted); padding: 8px 13px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: all 0.14s; }
+  .nav-btn:hover { color: var(--text); background: var(--surface-2); }
+  .nav-btn.active { color: #fff; background: var(--primary); }
+
+  main { max-width: 1080px; margin: 22px auto; padding: 0 20px; }
+  .view { display: none; animation: fade 0.25s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  h2 { font-size: 24px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.3px; }
+  h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  h4 { font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+  .lead { color: var(--muted); font-size: 14px; margin-bottom: 22px; max-width: 680px; }
+  p { margin-bottom: 10px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card.pad-sm { padding: 16px; }
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  .pill-tag { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 9px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dim); margin-bottom: 12px; }
+  @media (prefers-color-scheme: dark) { .pill-tag { color: var(--primary); } }
+  :root[data-theme="dark"] .pill-tag { color: var(--primary); }
+
+  button, .btn { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 10px 15px; border-radius: 10px; cursor: pointer; font-size: 13.5px; font-weight: 600; transition: all 0.14s; font-family: inherit; }
+  button:hover, .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-dim); border-color: var(--primary-dim); color: #fff; }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
+  .btn-danger:hover { color: var(--danger); border-color: var(--danger); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  label.field { display: block; margin-bottom: 14px; }
+  label.field > span { display: block; font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; font-family: inherit; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+  .inline-inputs { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .inline-inputs > * { flex: 1; min-width: 90px; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 15px; text-align: center; }
+  .stat .num { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .stat .num.pri { color: var(--primary); }
+  .stat .num.acc { color: var(--accent); }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-top: 3px; }
+  .stat .sub2 { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+  .hero { background: linear-gradient(135deg, var(--primary-soft) 0%, var(--accent-soft) 130%); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 18px; }
+  .hero .eyebrow { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--primary-dim); font-weight: 700; margin-bottom: 6px; }
+  @media (prefers-color-scheme: dark){ .hero .eyebrow{ color: var(--primary);} }
+  :root[data-theme="dark"] .hero .eyebrow { color: var(--primary); }
+  .hero .big { font-size: 30px; font-weight: 800; letter-spacing: -0.6px; margin-bottom: 4px; }
+  .hero .desc { color: var(--muted); font-size: 14px; }
+
+  .list-item { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; margin-bottom: 8px; }
+  .list-item .grow { flex: 1; min-width: 0; }
+  .list-item .name { font-weight: 600; font-size: 14px; word-break: break-word; }
+  .list-item .meta { font-size: 12px; color: var(--muted); }
+  .x-btn { background: transparent; border: none; color: var(--muted); width: 30px; height: 30px; border-radius: 8px; font-size: 17px; padding: 0; flex-shrink: 0; }
+  .x-btn:hover { color: var(--danger); background: var(--bg); }
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
+
+  .bar-track { height: 9px; background: var(--surface-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.4s ease; }
+  .bar-fill.over { background: var(--accent); }
+  .bar-fill.under { background: var(--star); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day-star { aspect-ratio: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.14s; user-select: none; }
+  .day-star:hover { border-color: var(--star); }
+  .day-star .dow { font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+  .day-star .dnum { font-size: 15px; font-weight: 700; }
+  .day-star .glyph { font-size: 20px; line-height: 1; height: 22px; }
+  .day-star.won { background: rgba(242,183,5,0.14); border-color: var(--star); }
+  .day-star.won .dnum { color: var(--star); }
+  .day-star.future { opacity: 0.45; cursor: default; }
+  .day-star.today { box-shadow: 0 0 0 2px var(--primary); }
+
+  .note { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 15px; font-size: 13.5px; margin-bottom: 14px; }
+  .note.pri { background: var(--primary-soft); border-left-color: var(--primary); }
+  .note strong { font-weight: 700; }
+
+  .principle { border-left: 3px solid var(--primary); padding-left: 16px; margin-bottom: 22px; }
+  .principle .pnum { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--primary); text-transform: uppercase; }
+  .principle h3 { margin: 2px 0 6px; }
+  .principle p { font-size: 13.5px; color: var(--text); }
+  .principle .action { background: var(--surface-2); border-radius: 10px; padding: 10px 13px; font-size: 13px; margin-top: 8px; }
+  .principle .action b { color: var(--primary-dim); }
+  @media (prefers-color-scheme: dark){ .principle .action b{color: var(--primary);} }
+  :root[data-theme="dark"] .principle .action b { color: var(--primary); }
+
+  .accordion { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .accordion > summary { padding: 14px 16px; cursor: pointer; font-weight: 700; font-size: 14px; list-style: none; display: flex; justify-content: space-between; align-items: center; background: var(--surface); }
+  .accordion > summary::-webkit-details-marker { display: none; }
+  .accordion > summary::after { content: "+"; color: var(--muted); font-size: 20px; font-weight: 400; }
+  .accordion[open] > summary::after { content: "\2212"; }
+  .accordion > summary:hover { color: var(--primary); }
+  .accordion .body { padding: 0 16px 16px; font-size: 13.5px; color: var(--text); }
+  .accordion .body p { margin-bottom: 8px; }
+  .accordion .body ul { margin: 0 0 8px 18px; }
+  .accordion .body li { margin-bottom: 4px; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+  .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dim); }
+  :root[data-theme="dark"] .chip.on { color: var(--primary); }
+
+  .foot { max-width: 1080px; margin: 30px auto 0; padding: 16px 20px; color: var(--muted); font-size: 11.5px; text-align: center; line-height: 1.6; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .switch input { width: auto; }
+  svg.chart { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  @media (max-width: 560px) {
+    h2 { font-size: 21px; }
+    .hero .big { font-size: 25px; }
+    main { padding: 0 14px; }
+    .header-inner { padding: 12px 14px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark">AGD</div>
+      <div>
+        <h1>Anything Goes Diet</h1>
+        <div class="sub">Companion &amp; Progress Tracker</div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light / dark">◐</button>
+  </div>
+  <nav id="nav">
+    <button class="nav-btn active" data-view="today">Today</button>
+    <button class="nav-btn" data-view="weight">Weigh-In</button>
+    <button class="nav-btn" data-view="targets">Targets</button>
+    <button class="nav-btn" data-view="log">Food Log</button>
+    <button class="nav-btn" data-view="lists">My Lists</button>
+    <button class="nav-btn" data-view="week">Win the Week</button>
+    <button class="nav-btn" data-view="team">My Team</button>
+    <button class="nav-btn" data-view="progress">Progress</button>
+    <button class="nav-btn" data-view="learn">The Book</button>
+    <button class="nav-btn" data-view="settings">Settings</button>
+  </nav>
+</header>
+
+<main>
+  <!-- TODAY -->
+  <section class="view active" id="view-today"></section>
+  <!-- WEIGH-IN -->
+  <section class="view" id="view-weight"></section>
+  <!-- TARGETS -->
+  <section class="view" id="view-targets"></section>
+  <!-- FOOD LOG -->
+  <section class="view" id="view-log"></section>
+  <!-- LISTS -->
+  <section class="view" id="view-lists"></section>
+  <!-- WIN THE WEEK -->
+  <section class="view" id="view-week"></section>
+  <!-- TEAM -->
+  <section class="view" id="view-team"></section>
+  <!-- PROGRESS -->
+  <section class="view" id="view-progress"></section>
+  <!-- LEARN -->
+  <section class="view" id="view-learn"></section>
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings"></section>
+</main>
+
+<div class="foot">
+  An independent study &amp; tracking companion inspired by the principles in <em>The Anything Goes Diet</em> by John Barban.
+  Not affiliated with, endorsed by, or a substitute for the original program.
+  Educational tool only — not medical or nutritional advice. Talk to a doctor before starting any weight-loss plan.
+  All your data stays private in this browser (localStorage). Export a backup regularly.
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   The Anything Goes Diet — Companion & Progress Tracker
+   Single-file app. All data persists in localStorage.
+   ============================================================ */
+
+const STORE_KEY = "agd_state_v1";
+const CAL_PER = { protein: 4, carb: 4, fat: 9, alcohol: 7 };
+const LB_PER_KG = 2.2046226218;
+const CAL_PER_LB_FAT = 3500;
+
+/* ---------- state ---------- */
+const defaultState = () => ({
+  profile: {
+    name: "",
+    sex: "male",
+    age: 35,
+    heightCm: 178,
+    units: "lb",            // 'lb' | 'kg'
+    activity: "sedentary",  // sedentary | light | moderate
+    exerciseLevel: 1,       // 1..4 (protein minimum tiers)
+    startWeightLb: null,
+    goalWeightLb: null,
+    startDate: null
+  },
+  weights: [],              // {date:'YYYY-MM-DD', lb:Number}
+  foodLog: {},              // {date: [{id,name,cal,p,c,f,fiber}]}
+  lists: { hotButton: [], canDo: [], cantDo: [] },
+  roster: [],               // {id,name,role,note,emergency}
+  measurements: [],         // {date, waist,chest,arms,hips,thighs,shoulders,clothes,note}
+  wins: {},                 // {date:true}
+  weeklyGoalStickers: 5,
+  rewards: [],              // {id, tier:'weekly'|'monthly'|'goal', text, done}
+  settings: { theme: "auto", applyGuessing: true }
+});
+
+let S = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return deepMerge(defaultState(), parsed);
+  } catch (e) { return defaultState(); }
+}
+function deepMerge(base, over) {
+  if (Array.isArray(base)) return Array.isArray(over) ? over : base;
+  if (base && typeof base === "object") {
+    const out = { ...base };
+    for (const k in over) {
+      if (k in base && base[k] && typeof base[k] === "object" && !Array.isArray(base[k]))
+        out[k] = deepMerge(base[k], over[k]);
+      else out[k] = over[k];
+    }
+    return out;
+  }
+  return over;
+}
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+/* ---------- date helpers (local) ---------- */
+function todayISO() { const d = new Date(); return isoOf(d); }
+function isoOf(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function parseISO(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function daysBetween(aISO, bISO) { return Math.round((parseISO(bISO) - parseISO(aISO)) / 86400000); }
+function mondayOf(d) { const x = new Date(d); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); x.setHours(0,0,0,0); return x; }
+function fmtDate(iso) { return parseISO(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+function fmtDateFull(iso) { return parseISO(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }); }
+
+/* ---------- unit helpers ---------- */
+function isMetric() { return S.profile.units === "kg"; }
+function dispWeight(lb) { return isMetric() ? lb / LB_PER_KG : lb; }
+function toLb(v) { return isMetric() ? v * LB_PER_KG : v; }
+function wUnit() { return isMetric() ? "kg" : "lb"; }
+function round1(n) { return Math.round(n * 10) / 10; }
+function fmtW(lb, dec = 1) { if (lb == null || isNaN(lb)) return "—"; const v = dispWeight(lb); return (dec === 0 ? Math.round(v) : round1(v)) + " " + wUnit(); }
+
+/* ============================================================
+   NUTRITION MATH (faithful to the book's principles)
+   ============================================================ */
+
+// Mifflin-St Jeor RMR (kcal/day). Book criticizes Harris-Benedict for
+// overestimating; Mifflin is the more conservative modern standard.
+function rmr(lb) {
+  const kg = lb / LB_PER_KG, cm = S.profile.heightCm, age = S.profile.age;
+  const base = 10 * kg + 6.25 * cm - 5 * age;
+  return Math.round(base + (S.profile.sex === "male" ? 5 : -161));
+}
+// Maintenance = RMR x activity factor. Book urges most people to treat
+// themselves as sedentary; we default there and keep factors conservative.
+const ACT_FACTOR = { sedentary: 1.2, light: 1.375, moderate: 1.5 };
+function maintenance(lb) { return Math.round(rmr(lb) * (ACT_FACTOR[S.profile.activity] || 1.2)); }
+
+// Reverse Taper: the more fat you have to lose, the larger a deficit you can
+// sustain; as you get leaner the rate slows. Rate picked from pounds-to-goal.
+function reverseTaperRate(lbToGo) {
+  if (lbToGo >= 40) return 1.75;
+  if (lbToGo >= 25) return 1.5;
+  if (lbToGo >= 15) return 1.25;
+  if (lbToGo >= 8)  return 1.0;
+  if (lbToGo >= 3)  return 0.75;
+  if (lbToGo > 0.5) return 0.5;
+  return 0; // at / past goal -> maintenance
+}
+// Full target calculation for a given current weight.
+function calcTargets(curLb) {
+  const goal = S.profile.goalWeightLb;
+  const maint = maintenance(curLb);
+  const lbToGo = goal ? Math.max(0, curLb - goal) : 0;
+  const atGoal = goal && lbToGo <= 0.5;
+  const rate = goal ? reverseTaperRate(lbToGo) : 1.0; // no goal -> gentle 1lb/wk default
+  const dailyDeficit = Math.round((rate * CAL_PER_LB_FAT) / 7);
+  let daily = atGoal ? maint : maint - dailyDeficit;
+  // Responsible floor: never program below a sane minimum.
+  const floor = S.profile.sex === "male" ? 1500 : 1200;
+  const clampedFloor = Math.max(floor, Math.round(maint * 0.6));
+  const floored = !atGoal && daily < clampedFloor;
+  if (floored) daily = clampedFloor;
+  const effRate = round1(((maint - daily) * 7) / CAL_PER_LB_FAT);
+  return {
+    rmr: rmr(curLb), maintenance: maint, lbToGo, atGoal,
+    rate, dailyDeficit, dailyTarget: daily, weeklyTarget: daily * 7,
+    effectiveRate: effRate, floored
+  };
+}
+
+// Minimums (per the book): protein DRI x exercise tier, carb DRI 130,
+// essential fats (AI), fiber ~14g/1000kcal, + multivitamin reminder.
+const PROTEIN_DRI = { male: 60, female: 50 };
+const PROTEIN_MULT = { 1: 1, 2: 1.5, 3: 2.25, 4: 3.25 };
+const ESSENTIAL_FAT = {
+  male:   { o6: 17, o3: 1.6 },
+  female: { o6: 12, o3: 1.1 }
+};
+function minimums(dailyTargetCal) {
+  const sex = S.profile.sex;
+  const protein = Math.round(PROTEIN_DRI[sex] * (PROTEIN_MULT[S.profile.exerciseLevel] || 1));
+  const carb = 130;
+  const ef = ESSENTIAL_FAT[sex];
+  const fiber = dailyTargetCal ? Math.round((dailyTargetCal / 1000) * 14) : (sex === "male" ? 38 : 25);
+  return { protein, carb, essFat: ef.o6 + ef.o3, o6: ef.o6, o3: ef.o3, fiber };
+}
+
+/* ---------- weight analytics ---------- */
+function sortedWeights() { return [...S.weights].sort((a, b) => a.date < b.date ? -1 : 1); }
+function latestWeight() { const w = sortedWeights(); return w.length ? w[w.length - 1] : null; }
+// 7-day trailing average ending at a given weigh-in index.
+function rollingAvgAt(sw, iso) {
+  const end = parseISO(iso), start = addDays(end, -6);
+  const inWin = sw.filter(w => { const d = parseISO(w.date); return d >= start && d <= end; });
+  if (!inWin.length) return null;
+  return inWin.reduce((s, w) => s + w.lb, 0) / inWin.length;
+}
+function currentTrend() {
+  const sw = sortedWeights();
+  if (!sw.length) return null;
+  const latestISO = sw[sw.length - 1].date;
+  const nowAvg = rollingAvgAt(sw, latestISO);
+  const weekAgoISO = isoOf(addDays(parseISO(latestISO), -7));
+  const prevAvg = rollingAvgAt(sw, weekAgoISO);
+  return { nowAvg, prevAvg, deltaWeek: (prevAvg != null && nowAvg != null) ? nowAvg - prevAvg : null };
+}
+
+/* ---------- food log analytics ---------- */
+function dayEntries(iso) { return S.foodLog[iso] || []; }
+function dayTotals(iso) {
+  const t = { cal: 0, p: 0, c: 0, f: 0, fiber: 0 };
+  for (const e of dayEntries(iso)) {
+    t.cal += num(e.cal); t.p += num(e.p); t.c += num(e.c); t.f += num(e.f); t.fiber += num(e.fiber);
+  }
+  return t;
+}
+function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function guessedCal(cal) { return S.settings.applyGuessing ? Math.round(cal * 1.15) : Math.round(cal); }
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+const el = id => document.getElementById(id);
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+let CURRENT = "today";
+function showView(name) {
+  CURRENT = name;
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function render() {
+  const r = RENDERERS[CURRENT];
+  if (r) el("view-" + CURRENT).innerHTML = r();
+  bindDynamic();
+}
+
+/* ---------------- TODAY ---------------- */
+function rToday() {
+  const lw = latestWeight();
+  const trend = currentTrend();
+  const tgt = lw ? calcTargets(lw.lb) : null;
+  const iso = todayISO();
+  const totals = dayTotals(iso);
+  const gCal = guessedCal(totals.cal);
+  const setup = !S.profile.goalWeightLb || !lw;
+
+  const heroLoss = (() => {
+    if (!S.profile.startWeightLb || !lw) return null;
+    return S.profile.startWeightLb - lw.lb;
+  })();
+
+  const weekMon = mondayOf(new Date());
+  let winsThisWeek = 0;
+  for (let i = 0; i < 7; i++) if (S.wins[isoOf(addDays(weekMon, i))]) winsThisWeek++;
+
+  let out = "";
+  out += `<h2>Hi${S.profile.name ? ", " + esc(S.profile.name) : ""} 👋</h2>
+    <p class="lead">${fmtDateFull(iso)} — remember AGD rule #1: <strong>Think weekly, not daily.</strong> One day never makes or breaks you.</p>`;
+
+  if (setup) {
+    out += `<div class="note pri"><strong>Let's get set up.</strong> Add your details in
+      <a href="#" data-go="settings">Settings</a>, log your first weight in
+      <a href="#" data-go="weight">Weigh-In</a>, and check your calorie target under
+      <a href="#" data-go="targets">Targets</a>. Then it's simply: hit your number and <em>win the week</em>.</div>`;
+  }
+
+  // Hero: this week's target
+  if (tgt) {
+    out += `<div class="hero">
+      <div class="eyebrow">Your daily calorie target${tgt.atGoal ? " · maintenance" : ""}</div>
+      <div class="big">${tgt.dailyTarget.toLocaleString()} <span style="font-size:16px;font-weight:600;color:var(--muted)">kcal / day</span></div>
+      <div class="desc">${tgt.weeklyTarget.toLocaleString()} kcal across the week · ${tgt.atGoal ? "maintaining your goal weight 🎉" : "≈ " + tgt.effectiveRate + " lb/week fat loss (reverse taper)"}</div>
+    </div>`;
+  }
+
+  // stat row
+  out += `<div class="stat-row" style="margin-bottom:16px">`;
+  out += stat(lw ? fmtW(trend && trend.nowAvg != null ? trend.nowAvg : lw.lb) : "—", "Weight (7-day avg)", "pri",
+    trend && trend.deltaWeek != null ? (trend.deltaWeek <= 0 ? "▼ " : "▲ ") + fmtW(Math.abs(trend.deltaWeek)) + " vs last wk" : "log more to see trend");
+  out += stat(heroLoss != null ? fmtW(Math.abs(heroLoss)) : "—", heroLoss != null && heroLoss < 0 ? "Gained so far" : "Lost so far", "acc",
+    S.profile.goalWeightLb && lw ? fmtW(Math.max(0, lw.lb - S.profile.goalWeightLb)) + " to goal" : "set a goal weight");
+  out += stat(gCal.toLocaleString(), "Eaten today (guessed)", "", tgt ? "target " + tgt.dailyTarget.toLocaleString() : "");
+  out += stat(winsThisWeek + " / " + S.weeklyGoalStickers, "Wins this week", "", "tap days in Win the Week");
+  out += `</div>`;
+
+  // today's intake progress
+  if (tgt) {
+    const pct = Math.min(150, Math.round((gCal / tgt.dailyTarget) * 100));
+    const cls = gCal > tgt.dailyTarget ? "over" : "";
+    const remaining = tgt.dailyTarget - gCal;
+    out += `<div class="card"><h3>Today's calories</h3>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${Math.min(100, pct)}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted)">
+        <span>${gCal.toLocaleString()} eaten${S.settings.applyGuessing ? " (+15% guess)" : ""}</span>
+        <span>${remaining >= 0 ? remaining.toLocaleString() + " kcal left" : Math.abs(remaining).toLocaleString() + " kcal over"}</span>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn-primary" data-go="log">+ Log food</button>
+        <button data-go="weight">Log weigh-in</button>
+      </div></div>`;
+
+    // minimums snapshot
+    const mins = minimums(tgt.dailyTarget);
+    out += `<div class="card"><h3>Get your minimums <span class="pill-tag" style="margin:0">then anything goes</span></h3>
+      ${minRow("Protein", totals.p, mins.protein, "g")}
+      ${minRow("Carbs", totals.c, mins.carb, "g")}
+      ${minRow("Fiber", totals.fiber, mins.fiber, "g")}
+      <div class="note" style="margin:12px 0 0">Hit these floors + a multivitamin, stay at your calorie number, and the rest is genuinely up to you. No food is off-limits.</div>
+    </div>`;
+  }
+
+  // daily nudge
+  out += `<div class="card pad-sm"><h4 style="color:var(--primary)">Today's reminder</h4>
+    <p style="margin:0;font-size:13.5px;color:var(--text)">${dailyTip()}</p></div>`;
+
+  return out;
+}
+function stat(num, lbl, cls = "", sub = "") {
+  return `<div class="stat"><div class="num ${cls}">${num}</div><div class="lbl">${lbl}</div>${sub ? `<div class="sub2">${sub}</div>` : ""}</div>`;
+}
+function minRow(label, have, need, unit) {
+  const pct = need ? Math.min(100, Math.round((have / need) * 100)) : 0;
+  const done = have >= need;
+  return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+    <span>${label} ${done ? "✅" : ""}</span><span style="color:var(--muted)">${Math.round(have)} / ${need}${unit}</span></div>
+    <div class="bar-track"><div class="bar-fill ${done ? "" : "under"}" style="width:${pct}%"></div></div></div>`;
+}
+const TIPS = [
+  "Assume you ate a bit more than the label says. Calorie guessing keeps you ahead of the game.",
+  "Daily weight bounces around from water and food. Only judge yourself on the weekly average.",
+  "Craving a 'forbidden' food? Have a small portion of the real thing — 1000 calories of 'healthy' substitutes won't satisfy it.",
+  "There is no bad food. There are foods that are easier to overeat. Know your hot buttons.",
+  "Eating out tonight? Eat a little lighter earlier in the week to make room. That's thinking weekly.",
+  "Your goal isn't a number of pounds this week — it's simply to WIN the week by hitting your target.",
+  "Compare yourself only to yourself. Magazine bodies are drugs, lighting, and Photoshop.",
+  "The more fat you have to lose, the faster it comes off. Trust the reverse taper.",
+  "Maintenance is far easier than weight loss. It gets easier from here — keep going.",
+  "Food is never a reward. Reward your wins with new clothes, an outing, something you'll keep."
+];
+function dailyTip() {
+  const seed = daysBetween("2020-01-01", todayISO());
+  return TIPS[((seed % TIPS.length) + TIPS.length) % TIPS.length];
+}
+
+/* ---------------- WEIGH-IN ---------------- */
+function rWeight() {
+  const sw = sortedWeights();
+  const trend = currentTrend();
+  let out = `<h2>Weigh-In</h2>
+    <p class="lead">Weigh yourself under the same conditions (ideally first thing in the morning). Then <strong>ignore the daily number</strong> — watch the 7-day average and the weekly trend.</p>`;
+
+  out += `<div class="card"><h3>Log a weigh-in</h3>
+    <div class="inline-inputs">
+      <label class="field" style="margin:0"><span>Date</span><input type="date" id="wDate" value="${todayISO()}" max="${todayISO()}"></label>
+      <label class="field" style="margin:0"><span>Weight (${wUnit()})</span><input type="number" step="0.1" id="wVal" placeholder="e.g. ${isMetric() ? "82.5" : "182"}"></label>
+      <button class="btn-primary" id="wAdd" style="flex:0 0 auto">Save</button>
+    </div></div>`;
+
+  if (trend && trend.nowAvg != null) {
+    out += `<div class="stat-row" style="margin-bottom:16px">`;
+    out += stat(fmtW(trend.nowAvg), "Current 7-day avg", "pri");
+    out += stat(trend.prevAvg != null ? fmtW(trend.prevAvg) : "—", "Avg a week ago");
+    out += stat(trend.deltaWeek != null ? (trend.deltaWeek <= 0 ? "−" : "+") + fmtW(Math.abs(trend.deltaWeek)).replace(" " + wUnit(), "") : "—", "Weekly change", trend.deltaWeek != null && trend.deltaWeek <= 0 ? "acc" : "");
+    out += `</div>`;
+  }
+
+  // chart
+  if (sw.length >= 2) {
+    out += `<div class="card"><h3>Trend</h3>${weightChart(sw)}
+      <div class="legend"><span><i style="background:var(--border);height:8px;width:8px;border-radius:50%"></i> daily</span>
+      <span><i style="background:var(--primary)"></i> 7-day average</span>
+      ${S.profile.goalWeightLb ? `<span><i style="background:var(--accent)"></i> goal</span>` : ""}</div></div>`;
+  } else {
+    out += `<div class="note pri">Log at least 2 weigh-ins to see your trend chart. Daily is best; even a few times a week works.</div>`;
+  }
+
+  // weekly averages table
+  const weekly = weeklyAverages(sw);
+  if (weekly.length) {
+    out += `<div class="card"><h3>Weekly averages</h3><div class="table-wrap"><table>
+      <thead><tr><th>Week of</th><th class="num">Avg weight</th><th class="num">Change</th><th class="num">Weigh-ins</th></tr></thead><tbody>`;
+    for (let i = weekly.length - 1; i >= 0; i--) {
+      const w = weekly[i];
+      const prev = weekly[i - 1];
+      const ch = prev ? w.avg - prev.avg : null;
+      out += `<tr><td>${fmtDate(w.weekISO)}</td><td class="num">${fmtW(w.avg)}</td>
+        <td class="num" style="color:${ch == null ? "var(--muted)" : ch <= 0 ? "var(--primary)" : "var(--accent)"}">${ch == null ? "—" : (ch <= 0 ? "−" : "+") + round1(Math.abs(dispWeight(ch)))}</td>
+        <td class="num">${w.count}</td></tr>`;
+    }
+    out += `</tbody></table></div></div>`;
+  }
+
+  // recent entries
+  if (sw.length) {
+    out += `<div class="card"><h3>Recent entries</h3>`;
+    for (let i = sw.length - 1; i >= Math.max(0, sw.length - 14); i--) {
+      const w = sw[i];
+      out += `<div class="list-item"><div class="grow"><div class="name">${fmtW(w.lb)}</div><div class="meta">${fmtDateFull(w.date)}</div></div>
+        <button class="x-btn" data-delw="${w.date}">×</button></div>`;
+    }
+    out += `</div>`;
+  }
+  return out;
+}
+function weeklyAverages(sw) {
+  const map = {};
+  for (const w of sw) {
+    const monISO = isoOf(mondayOf(parseISO(w.date)));
+    (map[monISO] = map[monISO] || []).push(w.lb);
+  }
+  return Object.keys(map).sort().map(k => ({ weekISO: k, avg: map[k].reduce((a, b) => a + b, 0) / map[k].length, count: map[k].length }));
+}
+function weightChart(sw) {
+  // last 90 days window
+  const cutoff = isoOf(addDays(new Date(), -90));
+  const pts = sw.filter(w => w.date >= cutoff);
+  const data = pts.length >= 2 ? pts : sw.slice(-30);
+  const W = 640, H = 240, pad = 34;
+  const xs = data.map(d => parseISO(d.date).getTime());
+  const minX = Math.min(...xs), maxX = Math.max(...xs) || minX + 1;
+  let vals = data.map(d => dispWeight(d.lb));
+  const goalV = S.profile.goalWeightLb ? dispWeight(S.profile.goalWeightLb) : null;
+  let minV = Math.min(...vals), maxV = Math.max(...vals);
+  if (goalV != null) { minV = Math.min(minV, goalV); maxV = Math.max(maxV, goalV); }
+  const span = (maxV - minV) || 1; minV -= span * 0.1; maxV += span * 0.1;
+  const X = t => pad + ((t - minX) / (maxX - minX || 1)) * (W - 2 * pad);
+  const Y = v => H - pad - ((v - minV) / (maxV - minV || 1)) * (H - 2 * pad);
+
+  // rolling avg line
+  const rollPts = data.map(d => ({ x: X(parseISO(d.date).getTime()), y: Y(dispWeight(rollingAvgAt(sw, d.date))) }));
+  const rollPath = rollPts.map((p, i) => (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" ");
+
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  // gridlines
+  for (let g = 0; g <= 4; g++) {
+    const y = pad + (g / 4) * (H - 2 * pad);
+    const v = maxV - (g / 4) * (maxV - minV);
+    svg += `<line x1="${pad}" y1="${y}" x2="${W - pad}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    svg += `<text x="4" y="${y + 4}" font-size="10" fill="var(--muted)">${Math.round(v)}</text>`;
+  }
+  if (goalV != null) {
+    const gy = Y(goalV);
+    svg += `<line x1="${pad}" y1="${gy}" x2="${W - pad}" y2="${gy}" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  }
+  // daily dots
+  for (const d of data) svg += `<circle cx="${X(parseISO(d.date).getTime()).toFixed(1)}" cy="${Y(dispWeight(d.lb)).toFixed(1)}" r="2.4" fill="var(--muted)" opacity="0.55"/>`;
+  // rolling avg
+  svg += `<path d="${rollPath}" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // x labels (start & end)
+  svg += `<text x="${pad}" y="${H - 8}" font-size="10" fill="var(--muted)">${fmtDate(data[0].date)}</text>`;
+  svg += `<text x="${W - pad}" y="${H - 8}" font-size="10" fill="var(--muted)" text-anchor="end">${fmtDate(data[data.length - 1].date)}</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+/* ---------------- TARGETS ---------------- */
+function rTargets() {
+  const lw = latestWeight();
+  let out = `<h2>Calorie Targets</h2>
+    <p class="lead">A transparent, independent estimate built on the book's logic: a conservative metabolic estimate, the <strong>reverse taper</strong> (more fat → faster loss), and <strong>calorie guessing</strong>. Re-check it about once a week as your weight changes.</p>`;
+
+  if (!lw) {
+    out += `<div class="note pri">Log a weigh-in first, then your target appears here. <a href="#" data-go="weight">Go to Weigh-In →</a></div>`;
+  }
+  if (!S.profile.goalWeightLb) {
+    out += `<div class="note">Set a <strong>goal weight</strong> in <a href="#" data-go="settings">Settings</a> to enable the reverse taper. Without it we assume a gentle ~1 lb/week.</div>`;
+  }
+
+  if (lw) {
+    const t = calcTargets(lw.lb);
+    const mins = minimums(t.dailyTarget);
+    out += `<div class="hero">
+      <div class="eyebrow">Eat this much to ${t.atGoal ? "maintain" : "lose weight"}</div>
+      <div class="big">${t.dailyTarget.toLocaleString()} kcal <span style="font-size:15px;color:var(--muted);font-weight:600">/ day</span></div>
+      <div class="desc">${t.weeklyTarget.toLocaleString()} kcal per week · ${t.atGoal ? "you're at your goal — nice work" : "projected ≈ " + t.effectiveRate + " lb/week"}</div>
+    </div>`;
+
+    out += `<div class="grid grid-2">`;
+    out += `<div class="card"><h3>How this number is built</h3><div class="table-wrap"><table><tbody>
+      <tr><td>Resting metabolic rate (est.)</td><td class="num">${t.rmr.toLocaleString()} kcal</td></tr>
+      <tr><td>Activity factor (${esc(S.profile.activity)})</td><td class="num">×${ACT_FACTOR[S.profile.activity]}</td></tr>
+      <tr><td><b>Maintenance</b></td><td class="num"><b>${t.maintenance.toLocaleString()} kcal</b></td></tr>
+      ${t.atGoal ? "" : `<tr><td>Reverse-taper deficit (${t.rate} lb/wk pace)</td><td class="num">−${t.dailyDeficit.toLocaleString()} kcal</td></tr>`}
+      <tr><td><b>Daily target</b></td><td class="num"><b>${t.dailyTarget.toLocaleString()} kcal</b></td></tr>
+    </tbody></table></div>
+    ${t.floored ? `<div class="note" style="margin:12px 0 0">Target was raised to a safe floor. Losing slower but steadier is the AGD way.</div>` : ""}
+    <div class="note pri" style="margin:12px 0 0"><strong>Calorie guessing:</strong> the book says to treat even this number as generous — aim to land <em>at or just under</em> it, and assume labels undercount by 10–15%.</div>
+    </div>`;
+
+    out += `<div class="card"><h3>Your daily minimums</h3>
+      <p style="font-size:13px;color:var(--muted)">Hit these floors with food you enjoy — then anything goes with the calories that remain.</p>
+      <div class="table-wrap"><table><tbody>
+      <tr><td>Protein <span style="color:var(--muted);font-size:12px">(tier ${S.profile.exerciseLevel})</span></td><td class="num">${mins.protein} g</td></tr>
+      <tr><td>Carbohydrate</td><td class="num">${mins.carb} g</td></tr>
+      <tr><td>Fiber (~14g/1000 kcal)</td><td class="num">${mins.fiber} g</td></tr>
+      <tr><td>Essential fats (ω-6 + ω-3)</td><td class="num">${mins.o6} + ${mins.o3} g</td></tr>
+      <tr><td>Vitamins &amp; minerals</td><td class="num">100% (multivitamin)</td></tr>
+    </tbody></table></div>
+    <div class="note" style="margin:12px 0 0">Protein tier scales with how much you train. Change your <strong>exercise level</strong> in Settings.</div>
+    </div>`;
+    out += `</div>`;
+
+    // reverse taper ladder
+    if (S.profile.goalWeightLb && !t.atGoal) {
+      out += `<div class="card"><h3>Your reverse-taper roadmap</h3>
+        <p style="font-size:13px;color:var(--muted)">As you get lighter, your target calories rise and the pace eases. This is a preview — recalculated from your real weigh-ins each week.</p>
+        <div class="table-wrap"><table><thead><tr><th>At weight</th><th class="num">Maintenance</th><th class="num">Daily target</th><th class="num">Pace</th></tr></thead><tbody>`;
+      const cur = lw.lb, goal = S.profile.goalWeightLb;
+      const steps = 5;
+      for (let i = 0; i <= steps; i++) {
+        const w = cur - ((cur - goal) * i / steps);
+        const tt = calcTargets(w);
+        out += `<tr${i === 0 ? ' style="color:var(--primary)"' : ""}><td>${fmtW(w, 0)}${i === 0 ? " (now)" : ""}</td>
+          <td class="num">${tt.maintenance.toLocaleString()}</td><td class="num">${tt.dailyTarget.toLocaleString()}</td>
+          <td class="num">${tt.atGoal ? "maintain" : tt.effectiveRate + " lb/wk"}</td></tr>`;
+      }
+      out += `</tbody></table></div></div>`;
+    }
+    out += `<div class="note">This estimator is <strong>not</strong> the official AGD calculator and isn't medical advice — it's a faithful, transparent approximation of the book's method. Verify with a professional if you have any health conditions.</div>`;
+  }
+  return out;
+}
+
+/* ---------------- FOOD LOG ---------------- */
+let LOG_DATE = todayISO();
+function rLog() {
+  const lw = latestWeight();
+  const tgt = lw ? calcTargets(lw.lb) : null;
+  const iso = LOG_DATE;
+  const entries = dayEntries(iso);
+  const totals = dayTotals(iso);
+  const gCal = guessedCal(totals.cal);
+
+  let out = `<h2>Food Log</h2>
+    <p class="lead">Guess honestly and lean high. You don't need perfection — you need to stay near your weekly number. <strong>Assume you ate 10–15% more than the label says.</strong></p>`;
+
+  out += `<div class="card"><div class="inline-inputs" style="margin-bottom:2px">
+    <label class="field" style="margin:0;flex:0 0 auto"><span>Day</span><input type="date" id="logDate" value="${iso}" max="${todayISO()}"></label>
+    <label class="switch" style="flex:0 0 auto;padding-bottom:10px"><input type="checkbox" id="guessTgl" ${S.settings.applyGuessing ? "checked" : ""}> Apply +15% calorie guessing</label>
+  </div></div>`;
+
+  // summary
+  out += `<div class="stat-row" style="margin-bottom:16px">`;
+  out += stat(gCal.toLocaleString(), "Calories" + (S.settings.applyGuessing ? " (guessed)" : ""), "pri", tgt ? "target " + tgt.dailyTarget.toLocaleString() : "set a target");
+  out += stat(Math.round(totals.p) + " g", "Protein");
+  out += stat(Math.round(totals.c) + " g", "Carbs");
+  out += stat(Math.round(totals.f) + " g", "Fat");
+  out += `</div>`;
+
+  if (tgt) {
+    const pct = Math.min(100, Math.round(gCal / tgt.dailyTarget * 100));
+    const over = gCal > tgt.dailyTarget;
+    out += `<div class="card pad-sm"><div class="bar-track"><div class="bar-fill ${over ? "over" : ""}" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted)">
+      <span>${gCal.toLocaleString()} / ${tgt.dailyTarget.toLocaleString()} kcal</span>
+      <span>${over ? Math.abs(tgt.dailyTarget - gCal).toLocaleString() + " over — even it out later this week" : (tgt.dailyTarget - gCal).toLocaleString() + " kcal left"}</span></div></div>`;
+  }
+
+  // add entry
+  out += `<div class="card"><h3>Add food</h3>
+    <label class="field"><span>What did you eat?</span><input type="text" id="fName" placeholder="e.g. Coffee &amp; donut, slice of pizza…"></label>
+    <div class="inline-inputs">
+      <label class="field" style="margin:0"><span>Calories</span><input type="number" id="fCal" inputmode="numeric" placeholder="kcal"></label>
+      <label class="field" style="margin:0"><span>Protein g</span><input type="number" id="fP" inputmode="numeric" placeholder="0"></label>
+      <label class="field" style="margin:0"><span>Carbs g</span><input type="number" id="fC" inputmode="numeric" placeholder="0"></label>
+      <label class="field" style="margin:0"><span>Fat g</span><input type="number" id="fF" inputmode="numeric" placeholder="0"></label>
+      <label class="field" style="margin:0"><span>Fiber g</span><input type="number" id="fFib" inputmode="numeric" placeholder="0"></label>
+      <button class="btn-primary" id="fAdd" style="flex:0 0 auto">Add</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Only calories are required. Macros help track your minimums but are optional.</p>
+  </div>`;
+
+  // entries list
+  out += `<div class="card"><h3>${fmtDateFull(iso)}</h3>`;
+  if (!entries.length) out += `<div class="empty">Nothing logged yet. Add your first item above.</div>`;
+  else {
+    for (const e of entries) {
+      out += `<div class="list-item"><div class="grow"><div class="name">${esc(e.name)}</div>
+        <div class="meta">${Math.round(num(e.cal))} kcal${e.p ? " · P " + Math.round(num(e.p)) : ""}${e.c ? " · C " + Math.round(num(e.c)) : ""}${e.f ? " · F " + Math.round(num(e.f)) : ""}${e.fiber ? " · Fib " + Math.round(num(e.fiber)) : ""}</div></div>
+        <button class="x-btn" data-delf="${e.id}">×</button></div>`;
+    }
+    if (S.settings.applyGuessing) out += `<div class="note pri" style="margin:12px 0 0">Raw logged: <strong>${Math.round(totals.cal).toLocaleString()} kcal</strong> → with +15% guessing: <strong>${gCal.toLocaleString()} kcal</strong>.</div>`;
+  }
+  out += `</div>`;
+  return out;
+}
+
+/* ---------------- LISTS ---------------- */
+function rLists() {
+  let out = `<h2>My Lists</h2>
+    <p class="lead">The book's most important homework. Make these three lists <strong>before</strong> you really get going. They customize weight loss to <em>your</em> life so you never feel deprived.</p>`;
+
+  // Hot button
+  out += `<div class="card"><span class="pill-tag">List 1</span><h3>🔥 Hot Button Foods</h3>
+    <p style="font-size:13px;color:var(--muted)">The 2–3 foods you genuinely <em>cannot control</em> yourself around. Not bad — just handle-with-care. Decide how often you'll enjoy them on purpose.</p>
+    <div class="inline-inputs" style="margin:10px 0">
+      <input type="text" id="hbFood" placeholder="e.g. chicken wings, ice cream…">
+      <select id="hbFreq" style="flex:0 0 150px"><option value="1× / week">1× / week</option><option value="2–3× / week">2–3× / week</option><option value="1× / 2 weeks">every 2 weeks</option><option value="special occasions">special occasions</option></select>
+      <button class="btn-primary" id="hbAdd" style="flex:0 0 auto">Add</button>
+    </div>`;
+  if (!S.lists.hotButton.length) out += `<div class="empty">No hot-button foods yet.</div>`;
+  else S.lists.hotButton.forEach((h, i) => {
+    out += `<div class="list-item"><div class="grow"><div class="name">${esc(h.food)}</div><div class="meta">plan: ${esc(h.freq)}</div></div>
+      <button class="x-btn" data-delhb="${i}">×</button></div>`;
+  });
+  out += `<div class="note" style="margin-top:12px">Tip: only buy the portion you're comfortable eating. Get one cookie from the café instead of a whole bag for the cupboard.</div></div>`;
+
+  // Can do without
+  out += `<div class="card"><span class="pill-tag">List 2</span><h3>👋 "Can" Do Without</h3>
+    <p style="font-size:13px;color:var(--muted)">Mindless foods &amp; eating events you won't actually miss — the auto-pilot snacks. Label them "not right now," never "bad." Give each change 2 weeks.</p>
+    ${listAdder("cdFood", "cdAdd", "e.g. chips while watching TV, movie popcorn…")}
+    ${simpleList(S.lists.canDo, "delcd")}
+  </div>`;
+
+  // Can't do without
+  out += `<div class="card"><span class="pill-tag">List 3</span><h3>💚 "Can't" Do Without</h3>
+    <p style="font-size:13px;color:var(--muted)">The rituals you must keep to stay happy and sane. Be honest — protecting these is what makes the whole thing sustainable (the author kept his morning coffee &amp; donut through a 40 lb loss).</p>
+    ${listAdder("cnFood", "cnAdd", "e.g. morning coffee, Friday dinner out…")}
+    ${simpleList(S.lists.cantDo, "delcn")}
+  </div>`;
+
+  out += `<div class="note pri">Re-visit these lists every 4–6 weeks. Nothing here is permanent — adjust as you learn what works for you.</div>`;
+  return out;
+}
+function listAdder(inputId, btnId, ph) {
+  return `<div class="inline-inputs" style="margin:10px 0"><input type="text" id="${inputId}" placeholder="${ph}"><button class="btn-primary" id="${btnId}" style="flex:0 0 auto">Add</button></div>`;
+}
+function simpleList(arr, delKey) {
+  if (!arr.length) return `<div class="empty">Nothing here yet.</div>`;
+  return arr.map((x, i) => `<div class="list-item"><div class="grow"><div class="name">${esc(x)}</div></div><button class="x-btn" data-${delKey}="${i}">×</button></div>`).join("");
+}
+
+/* ---------------- WIN THE WEEK ---------------- */
+let WEEK_OFFSET = 0; // 0 = this week
+function rWeek() {
+  const mon = mondayOf(addDays(new Date(), WEEK_OFFSET * 7));
+  const monISO = isoOf(mon);
+  const todayI = todayISO();
+  let winCount = 0;
+  const dows = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  let strip = `<div class="week-strip">`;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(mon, i), iso = isoOf(d);
+    const won = !!S.wins[iso];
+    if (won) winCount++;
+    const future = iso > todayI;
+    const isToday = iso === todayI;
+    strip += `<div class="day-star ${won ? "won" : ""} ${future ? "future" : ""} ${isToday ? "today" : ""}" ${future ? "" : `data-win="${iso}"`}>
+      <div class="dow">${dows[i]}</div><div class="dnum">${d.getDate()}</div><div class="glyph">${won ? "⭐" : ""}</div></div>`;
+  }
+  strip += `</div>`;
+
+  const goal = S.weeklyGoalStickers;
+  const weekWon = winCount >= goal;
+  const streak = winStreak();
+
+  let out = `<h2>Win the Week</h2>
+    <p class="lead">Forget "lose X pounds." Your only goal is to <strong>win the week</strong> — hit your target on enough days. Tap a day to drop a ⭐ sticker on it (just like the calendar the book recommends).</p>`;
+
+  out += `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <button class="btn-sm" data-week="-1">← Prev</button>
+      <strong style="font-size:15px">Week of ${fmtDate(monISO)}${WEEK_OFFSET === 0 ? " (this week)" : ""}</strong>
+      <button class="btn-sm" data-week="1" ${WEEK_OFFSET >= 0 ? "disabled style='opacity:.4'" : ""}>Next →</button>
+    </div>
+    ${strip}
+    <div style="text-align:center;margin-top:16px">
+      <div style="font-size:34px;font-weight:800;color:${weekWon ? "var(--star)" : "var(--text)"}">${winCount} / ${goal}</div>
+      <div style="color:var(--muted);font-size:13px">winning days ${weekWon ? "— 🏆 week won!" : "to win the week"}</div>
+    </div>
+  </div>`;
+
+  out += `<div class="stat-row" style="margin-bottom:16px">`;
+  out += stat(streak.current, "Week win streak 🔥", "pri", "consecutive weeks won");
+  out += stat(streak.best, "Best streak", "acc");
+  out += stat(Object.values(S.wins).filter(Boolean).length, "Total ⭐ earned");
+  out += `</div>`;
+
+  out += `<div class="card"><h3>Winning days needed</h3>
+    <p style="font-size:13px;color:var(--muted)">How many good days makes a "won" week for you? The book's example uses ~4. Pick what's realistic.</p>
+    <div class="inline-inputs"><label class="field" style="margin:0;flex:0 0 120px"><span>Days / week</span>
+      <select id="goalStickers">${[3,4,5,6,7].map(n => `<option value="${n}" ${goal === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div>
+  </div>`;
+
+  // Rewards
+  out += `<div class="card"><h3>🎁 Rewards (never food)</h3>
+    <p style="font-size:13px;color:var(--muted)">Celebrate wins with things you'll keep — new clothes, an outing, a trip. Food is never the reward.</p>
+    <div class="inline-inputs" style="margin:10px 0">
+      <select id="rwTier" style="flex:0 0 140px"><option value="weekly">Weekly win</option><option value="monthly">Monthly win</option><option value="goal">Final goal</option></select>
+      <input type="text" id="rwText" placeholder="e.g. new running shoes">
+      <button class="btn-primary" id="rwAdd" style="flex:0 0 auto">Add</button>
+    </div>`;
+  if (!S.rewards.length) out += `<div class="empty">No rewards planned yet.</div>`;
+  else {
+    const tierLbl = { weekly: "Weekly", monthly: "Monthly", goal: "Goal" };
+    ["weekly", "monthly", "goal"].forEach(tier => {
+      const items = S.rewards.filter(r => r.tier === tier);
+      if (!items.length) return;
+      items.forEach(r => {
+        out += `<div class="list-item"><label class="switch" style="flex:0 0 auto"><input type="checkbox" ${r.done ? "checked" : ""} data-rwdone="${r.id}"></label>
+          <div class="grow"><div class="name" style="${r.done ? "text-decoration:line-through;opacity:.6" : ""}">${esc(r.text)}</div><div class="meta">${tierLbl[tier]} reward</div></div>
+          <button class="x-btn" data-delrw="${r.id}">×</button></div>`;
+      });
+    });
+  }
+  out += `</div>`;
+  return out;
+}
+function winStreak() {
+  // consecutive weeks (ending this week or last completed) meeting goal
+  const goal = S.weeklyGoalStickers;
+  const weekWon = off => {
+    const mon = mondayOf(addDays(new Date(), off * 7));
+    let c = 0; for (let i = 0; i < 7; i++) if (S.wins[isoOf(addDays(mon, i))]) c++;
+    return c >= goal;
+  };
+  let current = 0, off = 0;
+  if (!weekWon(0)) off = -1; // if this week not yet won, start from last week
+  while (weekWon(off)) { current++; off--; }
+  // best over last 52 weeks
+  let best = 0, run = 0;
+  for (let o = -52; o <= 0; o++) { if (weekWon(o)) { run++; best = Math.max(best, run); } else run = 0; }
+  return { current, best: Math.max(best, current) };
+}
+
+/* ---------------- TEAM ---------------- */
+function rTeam() {
+  let out = `<h2>My Team (The Roster)</h2>
+    <p class="lead">You need a few of the right people — and to keep the wrong ones out. Pick supporters who won't lecture you, plus <strong>one "tough-love" emergency contact</strong> for when you're about to slip.</p>`;
+
+  out += `<div class="card"><h3>Add a team member</h3>
+    <label class="field"><span>Name</span><input type="text" id="tmName" placeholder="Name"></label>
+    <div class="inline-inputs">
+      <label class="field" style="margin:0"><span>Role / how they help</span><input type="text" id="tmRole" placeholder="e.g. workout buddy, cheerleader, accountability"></label>
+      <label class="switch" style="flex:0 0 auto;padding-bottom:10px"><input type="checkbox" id="tmEmg"> ☎️ Emergency tough-love person</label>
+      <button class="btn-primary" id="tmAdd" style="flex:0 0 auto">Add</button>
+    </div></div>`;
+
+  const emg = S.roster.filter(r => r.emergency);
+  if (emg.length) {
+    out += `<div class="card" style="border-color:var(--accent)"><h3>☎️ Your emergency call</h3>`;
+    emg.forEach(r => out += `<div class="list-item"><div class="grow"><div class="name">${esc(r.name)}</div><div class="meta">${esc(r.role || "tough love when you need it")}</div></div></div>`);
+    out += `<div class="note" style="margin:12px 0 0">Call this person the moment you feel a binge coming. That's exactly what they're here for.</div></div>`;
+  }
+
+  out += `<div class="card"><h3>Your roster</h3>`;
+  if (!S.roster.length) out += `<div class="empty">No one added yet. You only need a few key people.</div>`;
+  else S.roster.forEach(r => {
+    out += `<div class="list-item"><div class="grow"><div class="name">${esc(r.name)} ${r.emergency ? "☎️" : ""}</div><div class="meta">${esc(r.role || "supporter")}</div></div>
+      <button class="x-btn" data-deltm="${r.id}">×</button></div>`;
+  });
+  out += `</div>`;
+
+  out += `<div class="accordion"><details><summary>Who to pick — and who to avoid</summary><div class="body">
+    <ul>
+      <li><strong>Best first picks:</strong> people who genuinely care about you and have <em>no</em> strong opinions about the "right" way to diet.</li>
+      <li><strong>Be careful with:</strong> anyone struggling with their own weight who won't commit to change — they may (even unconsciously) sabotage you.</li>
+      <li>Any push-back you get is about <em>them</em>, not you. Don't take it personally.</li>
+      <li>Find like-minded people online too. Be selective about who you share your goal with.</li>
+    </ul>
+  </div></details></div>`;
+  return out;
+}
+
+/* ---------------- PROGRESS (All About You) ---------------- */
+function rProgress() {
+  let out = `<h2>Progress — All About You</h2>
+    <p class="lead">Only ever compare yourself to <strong>yourself</strong>. The scale lies day-to-day; measurements, photos and how clothes fit tell the real story. Log these about once a month.</p>`;
+
+  out += `<div class="card"><h3>New measurement set</h3>
+    <div class="grid grid-3">
+      ${measInput("mWaist", "Waist")}
+      ${measInput("mChest", "Chest")}
+      ${measInput("mArms", "Arms")}
+      ${measInput("mHips", "Hips")}
+      ${measInput("mThighs", "Thighs")}
+      ${measInput("mShoulders", "Shoulders")}
+    </div>
+    <label class="field"><span>Clothes / notes</span><input type="text" id="mNote" placeholder="e.g. old jeans button again; belt down a notch"></label>
+    <button class="btn-primary" id="mAdd">Save measurements</button>
+  </div>`;
+
+  const ms = [...S.measurements].sort((a, b) => a.date < b.date ? 1 : -1);
+  if (ms.length) {
+    const keys = [["waist","Waist"],["chest","Chest"],["arms","Arms"],["hips","Hips"],["thighs","Thighs"],["shoulders","Shoulders"]];
+    out += `<div class="card"><h3>History <span style="font-weight:400;color:var(--muted);font-size:12px">(${isMetric() ? "cm" : "in"})</span></h3><div class="table-wrap"><table>
+      <thead><tr><th>Date</th>${keys.map(k => `<th class="num">${k[1]}</th>`).join("")}<th></th></tr></thead><tbody>`;
+    ms.forEach(m => {
+      out += `<tr><td>${fmtDate(m.date)}</td>${keys.map(k => `<td class="num">${m[k[0]] != null && m[k[0]] !== "" ? m[k[0]] : "—"}</td>`).join("")}
+        <td class="num"><button class="x-btn" data-delm="${m.date}">×</button></td></tr>`;
+      if (m.note) out += `<tr><td colspan="8" style="color:var(--muted);font-size:12.5px;padding-top:0">📝 ${esc(m.note)}</td></tr>`;
+    });
+    out += `</tbody></table></div></div>`;
+  }
+
+  out += `<div class="accordion"><details><summary>Photos &amp; the honest truth about "ideal" bodies</summary><div class="body">
+    <p><strong>Take a "before" photo and a monthly follow-up</strong> in the same lighting and pose. Keep them on your own device — this app stores your data in the browser, so save photos separately.</p>
+    <p>The bodies in magazines and on social media are the product of drugs, dehydration, pro lighting, and hours of Photoshop — often captured for a single day. Comparing yourself to them is a losing game every time. You can't be them; they can't be you.</p>
+    <p>Your clothes are the simplest honest measure of progress. When they fit better, you're winning — no scale required.</p>
+  </div></details></div>`;
+  return out;
+}
+function measInput(id, label) {
+  return `<label class="field"><span>${label} (${isMetric() ? "cm" : "in"})</span><input type="number" step="0.1" id="${id}" placeholder="—"></label>`;
+}
+
+/* ---------------- LEARN (The Book) ---------------- */
+function rLearn() {
+  let out = `<h2>The Book, In Your Pocket</h2>
+    <p class="lead">A working summary of <em>The Anything Goes Diet</em> — the 10 principles, the science behind them, and answers to common questions. This is your quick reference, not a replacement for reading the manual.</p>`;
+
+  // 10 principles
+  const P = [
+    ["1 · Lifestyle", "Think Weekly — Nothing Changes in One Day", "Judge everything — calories, exercise, food variety, weight — on a weekly basis. Daily weight swings from water and food are meaningless. Ate extra at dinner? Eat a bit less tomorrow. This flexibility is what makes it sustainable.", "Track your 7-day weight average and even out calories across the week, not each day."],
+    ["2 · Lifestyle", "Makin' a List — Hot Button, Can &amp; Can't Do Without", "Write three lists before you start: (1) Hot Button foods you can't control around, (2) mindless things you Can Do Without, (3) rituals you Can't Do Without and must keep. This customizes weight loss to your life.", "Fill in all three under \"My Lists.\""],
+    ["3 · Lifestyle", "It's ALL GOOD — There Is No \"Bad\" Food", "The hardest idea to accept: labeling foods good/bad (\"restrained eating\") is what causes bingeing. There are only foods that are easier or harder to overeat. Reframe hot-button foods as \"sometimes\" or \"not right now,\" never \"bad.\"", "Make personal deals: link treat foods to specific times, places or events."],
+    ["4 · Lifestyle", "The Roster — Recruit Your Team", "Get a few supporters who won't lecture you, and one \"tough-love\" emergency contact. Expect that some people react to your progress out of their own insecurity — that's about them.", "Build your roster under \"My Team.\""],
+    ["5 · Lifestyle", "All About You — Compare Only to Yourself", "Never measure yourself against models, celebrities or friends. Use your own photos, measurements and how your clothes fit as your only benchmark.", "Log monthly measurements under \"Progress.\""],
+    ["6 · Science", "Calorie Guessing — Guessing Beats Counting", "Labels and machines are only estimates. Always assume you <em>ate 10–15% more</em> and <em>burned 10–15% less</em> than they say — even the calculator's number. This keeps you ahead of hidden errors.", "Turn on +15% guessing in the Food Log; the target already nudges you to aim under."],
+    ["7 · Science", "The Reverse Taper — More Fat Burns Faster", "The more body fat you carry, the bigger a deficit you can sustain, so start lower and eat your way <em>up</em> as you lean out. This preserves muscle and — crucially — teaches you to eat at maintenance so you don't rebound.", "The Targets tab plans your calories on a rising, reverse-taper ladder."],
+    ["8 · Science", "The Calculators — How Much to Eat", "Set a realistic daily/weekly calorie target from your size and activity, re-checked weekly. Most people should treat themselves as sedentary — calculators wildly overestimate activity burn.", "See your transparent estimate under \"Targets.\""],
+    ["9 · Science", "Get Your Minimums — Then Anything Goes", "Hit daily floors — protein, carbs, essential fats, fiber, and 100% vitamins/minerals (a multivitamin makes this easy) — then fill the rest of your calories with whatever you enjoy.", "Track minimums on Today &amp; in the Food Log."],
+    ["10 · Science", "Goals — Win the Week", "Don't set a pounds-per-week target you can fail. Set one goal: <strong>win the week</strong> by hitting your number on enough days. Stack winning weeks. Reward wins with non-food treats.", "Use the sticker calendar in \"Win the Week.\""]
+  ];
+  out += `<h3 style="margin:6px 0 14px">The 10 Principles</h3>`;
+  P.forEach(p => {
+    out += `<div class="principle"><div class="pnum">${p[0]}</div><h3>${p[1]}</h3><p>${p[2]}</p><div class="action"><b>In this app:</b> ${p[3]}</div></div>`;
+  });
+
+  // The science / deeper concepts
+  out += `<h3 style="margin:24px 0 12px">The Science, Simplified</h3>`;
+  const A = [
+    ["Restrained eating &amp; the \"diet boundary\"", `<p>Decades of research (Herman &amp; Polivy and others) found the strongest predictor of overeating isn't being overweight — it's <em>feeling deprived</em>. When you mentally split food into "allowed" vs "forbidden," you draw a diet boundary. Cross it (even by accident, even just <em>believing</em> you did) and inhibitions collapse: "I blew it, might as well eat the whole pizza."</p><p>The tighter the boundary, the worse the eventual binge. Self-control runs on limited "ego strength" that depletes like a muscle — so strict rulebooks always break down. The fix isn't more willpower; it's removing the boundaries. That's why <strong>anything must go</strong>.</p>`],
+    ["The Health Halo &amp; calorie distortion", `<p>Restrained eaters underestimate calories in "healthy" foods and overestimate them in "forbidden" ones. Told a snack was "healthy," people ate ~35% more of the identical food. Craving a 200-cal chocolate bar, someone may eat 1000+ cals of "healthy" substitutes and <em>still</em> not be satisfied — the only thing that satisfies the craving is a small portion of the real thing.</p>`],
+    ["Your metabolism (RMR) — lower than you think", `<p>Resting metabolic rate is just the calories you burn at rest, and it can only be <em>estimated</em>. Popular formulas overestimate (Harris-Benedict was off by up to 700 cals in one study). Your organs — heart, kidneys, liver, brain — drive ~69% of RMR; muscle burns only ~6 cal/lb at rest and fat ~2. Chasing muscle to "rev your metabolism" barely moves the needle. Bottom line: most of us need to eat less than we've been told, and should count ourselves <em>sedentary</em>.</p>`],
+    ["Protein, carbs &amp; fat — the honest version", `<ul>
+      <li><strong>Protein (4 cal/g):</strong> DRI is ~60g (men) / 50g (women); more only if you train hard. Its slightly higher thermic effect (~10%) won't melt fat — to burn 100 cals you'd eat 1000.</li>
+      <li><strong>Carbs (4 cal/g):</strong> not evil. Insulin only stores fat if you've eaten too much <em>total</em> food. Refined carbs are just cheap, tasty and very easy to overeat. Glycemic index/load matter far less than <em>amount</em>.</li>
+      <li><strong>Fat (9 cal/g):</strong> most calorie-dense, so trimming it lowers calories fastest — but you only truly need the essential omega-6 &amp; omega-3 fats. There's no requirement for saturated fat. Don't chase "low-fat" products; just eat a bit less of the real thing.</li>
+    </ul>`],
+    ["Meal timing &amp; macro ratios", `<p>Meal timing doesn't matter for weight loss — 2 meals, 3 meals + snack, or intermittent fasting all work. Eat the pattern you'll actually stick to. There's no magic macro ratio either; total calories rule. (The book pairs well with intermittent fasting like <em>Eat Stop Eat</em> if you like that style.)</p>`],
+    ["Why weight \"creeps up\" — and comes off faster", `<p>50 lbs over 10 years is only ~0.01 lb/day — invisible day to day. You'll always expect to lose it faster than you gained it, and that's fine: most people can lose serious weight in ~6 months. Just don't try to "watch the sun move" by weighing daily. And remember maintenance is <em>far</em> easier than loss — it gets easier, not harder.</p>`],
+    ["Exercise — helpful, not required", `<p>You don't need exercise to lose weight (activity calculators overestimate burn — you'd walk ~6 hours to burn 2000 cals). Diet does the heavy lifting early (think 80/20 diet-to-exercise), and exercise matters more as you get lean. Most people naturally start moving more once the weight comes off.</p>`]
+  ];
+  A.forEach(a => {
+    out += `<div class="accordion"><details><summary>${a[0]}</summary><div class="body">${a[1]}</div></details></div>`;
+  });
+
+  // FAQ
+  out += `<h3 style="margin:24px 0 12px">FAQ</h3>`;
+  const F = [
+    ["Can I do intermittent fasting with this?", "Yes — no eating style is off-limits. AGD combines well with Eat Stop Eat–style fasting."],
+    ["Do I need supplements?", "No. A multivitamin and fish oil are handy for hitting minimums, and protein powder is a cheap protein source, but none are required."],
+    ["Does it work for vegetarians?", "Yes. Since no food is \"bad,\" just mix protein sources over a few days to get all the essential amino acids."],
+    ["How many meals a day?", "As many or few as you like, as long as your weekly totals fit. Consistency over any fixed schedule."],
+    ["How much can I expect to lose?", "With 50+ lbs to lose, often 2–3 lb/week for the first few weeks (some water). It slows as you approach goal — that's the reverse taper working."],
+    ["Is saturated fat bad?", "Your body makes all it needs, so there's no requirement to eat it — but some as part of a balanced diet is fine. Don't try to remove fat entirely."]
+  ];
+  F.forEach(f => out += `<div class="accordion"><details><summary>${f[0]}</summary><div class="body"><p>${f[1]}</p></div></details></div>`);
+
+  out += `<div class="note pri" style="margin-top:18px"><strong>The whole plan on a napkin:</strong> Set a realistic calorie target → guess calories generously → hit your minimums → eat the foods you love for the rest → think weekly → win the week → compare only to yourself. That's it.</div>`;
+  return out;
+}
+
+/* ---------------- SETTINGS ---------------- */
+function rSettings() {
+  const p = S.profile;
+  const ft = Math.floor(p.heightCm / 2.54 / 12), inch = Math.round(p.heightCm / 2.54 - ft * 12);
+  let out = `<h2>Settings</h2><p class="lead">Your details power the calorie target and minimums. Update your goal or activity whenever life changes.</p>`;
+
+  out += `<div class="card"><h3>Profile</h3>
+    <label class="field"><span>Name (optional)</span><input type="text" id="pName" value="${esc(p.name)}" placeholder="Your name"></label>
+    <div class="grid grid-2">
+      <label class="field"><span>Sex (for calorie/protein formulas)</span>
+        <select id="pSex"><option value="male" ${p.sex === "male" ? "selected" : ""}>Male</option><option value="female" ${p.sex === "female" ? "selected" : ""}>Female</option></select></label>
+      <label class="field"><span>Age</span><input type="number" id="pAge" value="${p.age}"></label>
+    </div>
+    <div class="grid grid-2">
+      <label class="field"><span>Units</span>
+        <select id="pUnits"><option value="lb" ${p.units === "lb" ? "selected" : ""}>Pounds / inches</option><option value="kg" ${p.units === "kg" ? "selected" : ""}>Kilograms / cm</option></select></label>
+      <div>${p.units === "kg"
+        ? `<label class="field"><span>Height (cm)</span><input type="number" id="pHcm" value="${p.heightCm}"></label>`
+        : `<label class="field"><span>Height</span><div class="inline-inputs"><input type="number" id="pHft" value="${ft}" placeholder="ft"><input type="number" id="pHin" value="${inch}" placeholder="in"></div></label>`}</div>
+    </div>
+    <div class="grid grid-2">
+      <label class="field"><span>Start weight (${wUnit()})</span><input type="number" step="0.1" id="pStart" value="${p.startWeightLb != null ? round1(dispWeight(p.startWeightLb)) : ""}" placeholder="optional"></label>
+      <label class="field"><span>Goal weight (${wUnit()})</span><input type="number" step="0.1" id="pGoal" value="${p.goalWeightLb != null ? round1(dispWeight(p.goalWeightLb)) : ""}" placeholder="required for reverse taper"></label>
+    </div>
+    <div class="grid grid-2">
+      <label class="field"><span>Daily activity (be honest — most are sedentary)</span>
+        <select id="pAct">
+          <option value="sedentary" ${p.activity === "sedentary" ? "selected" : ""}>Sedentary (desk job, little exercise)</option>
+          <option value="light" ${p.activity === "light" ? "selected" : ""}>Light (workouts 2–3×/week)</option>
+          <option value="moderate" ${p.activity === "moderate" ? "selected" : ""}>Moderate (active job or 4–5 workouts)</option>
+        </select></label>
+      <label class="field"><span>Training level (sets protein minimum)</span>
+        <select id="pEx">
+          <option value="1" ${p.exerciseLevel == 1 ? "selected" : ""}>1 — No regular exercise</option>
+          <option value="2" ${p.exerciseLevel == 2 ? "selected" : ""}>2 — 1–4 hrs intense / week</option>
+          <option value="3" ${p.exerciseLevel == 3 ? "selected" : ""}>3 — 5–10 hrs intense / week</option>
+          <option value="4" ${p.exerciseLevel == 4 ? "selected" : ""}>4 — 10+ hrs intense / week</option>
+        </select></label>
+    </div>
+    <button class="btn-primary" id="pSave">Save profile</button>
+    <span id="pSaved" style="margin-left:12px;color:var(--primary);font-size:13px"></span>
+  </div>`;
+
+  out += `<div class="card"><h3>Appearance</h3>
+    <div class="btn-row">
+      <button class="${S.settings.theme === "light" ? "btn-primary" : ""}" data-theme-set="light">☀️ Light</button>
+      <button class="${S.settings.theme === "dark" ? "btn-primary" : ""}" data-theme-set="dark">🌙 Dark</button>
+      <button class="${S.settings.theme === "auto" ? "btn-primary" : ""}" data-theme-set="auto">◐ Auto</button>
+    </div></div>`;
+
+  out += `<div class="card"><h3>Your data</h3>
+    <p style="font-size:13px;color:var(--muted)">Everything lives only in this browser. Export a backup regularly — clearing browser data will erase it.</p>
+    <div class="btn-row">
+      <button class="btn-primary" id="expBtn">⬇ Export backup (.json)</button>
+      <button id="impBtn">⬆ Import backup</button>
+      <input type="file" id="impFile" accept="application/json" style="display:none">
+      <button class="btn-danger" id="resetBtn">Reset everything</button>
+    </div>
+    <span id="ioMsg" style="display:block;margin-top:10px;font-size:13px;color:var(--primary)"></span>
+  </div>`;
+
+  out += `<div class="card"><h3>About</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0">An independent companion inspired by the principles in <em>The Anything Goes Diet</em> by John Barban. Not affiliated with or endorsed by the author or program, and not medical advice. The calorie estimator is a transparent approximation of the book's method, not the official AGD calculator. Consult a healthcare professional before making dietary changes.</p></div>`;
+  return out;
+}
+
+/* ============================================================
+   EVENT BINDING
+   ============================================================ */
+function bindDynamic() {
+  // nav shortcuts inside content
+  document.querySelectorAll("[data-go]").forEach(a => a.onclick = e => { e.preventDefault(); showView(a.dataset.go); });
+
+  const V = CURRENT;
+  if (V === "weight") bindWeight();
+  else if (V === "log") bindLog();
+  else if (V === "lists") bindLists();
+  else if (V === "week") bindWeek();
+  else if (V === "team") bindTeam();
+  else if (V === "progress") bindProgress();
+  else if (V === "settings") bindSettings();
+}
+
+function bindWeight() {
+  el("wAdd").onclick = () => {
+    const date = el("wDate").value, val = parseFloat(el("wVal").value);
+    if (!date || isNaN(val)) return;
+    const lb = toLb(val);
+    S.weights = S.weights.filter(w => w.date !== date);
+    S.weights.push({ date, lb });
+    if (S.profile.startWeightLb == null) { S.profile.startWeightLb = lb; S.profile.startDate = date; }
+    save(); render();
+  };
+  document.querySelectorAll("[data-delw]").forEach(b => b.onclick = () => {
+    S.weights = S.weights.filter(w => w.date !== b.dataset.delw); save(); render();
+  });
+}
+
+function bindLog() {
+  el("logDate").onchange = e => { LOG_DATE = e.target.value; render(); };
+  el("guessTgl").onchange = e => { S.settings.applyGuessing = e.target.checked; save(); render(); };
+  el("fAdd").onclick = () => {
+    const name = el("fName").value.trim();
+    const cal = el("fCal").value;
+    if (!name || cal === "") return;
+    const entry = { id: uid(), name, cal: num(cal), p: num(el("fP").value), c: num(el("fC").value), f: num(el("fF").value), fiber: num(el("fFib").value) };
+    (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push(entry);
+    save(); render();
+    const n = el("fName"); if (n) n.focus();
+  };
+  document.querySelectorAll("[data-delf]").forEach(b => b.onclick = () => {
+    S.foodLog[LOG_DATE] = (S.foodLog[LOG_DATE] || []).filter(e => e.id !== b.dataset.delf);
+    save(); render();
+  });
+}
+
+function bindLists() {
+  el("hbAdd").onclick = () => {
+    const food = el("hbFood").value.trim(); if (!food) return;
+    S.lists.hotButton.push({ food, freq: el("hbFreq").value }); save(); render();
+  };
+  el("cdAdd").onclick = () => { const v = el("cdFood").value.trim(); if (!v) return; S.lists.canDo.push(v); save(); render(); };
+  el("cnAdd").onclick = () => { const v = el("cnFood").value.trim(); if (!v) return; S.lists.cantDo.push(v); save(); render(); };
+  document.querySelectorAll("[data-delhb]").forEach(b => b.onclick = () => { S.lists.hotButton.splice(+b.dataset.delhb, 1); save(); render(); });
+  document.querySelectorAll("[data-delcd]").forEach(b => b.onclick = () => { S.lists.canDo.splice(+b.dataset.delcd, 1); save(); render(); });
+  document.querySelectorAll("[data-delcn]").forEach(b => b.onclick = () => { S.lists.cantDo.splice(+b.dataset.delcn, 1); save(); render(); });
+  enterToClick("hbFood", "hbAdd"); enterToClick("cdFood", "cdAdd"); enterToClick("cnFood", "cnAdd");
+}
+
+function bindWeek() {
+  document.querySelectorAll("[data-win]").forEach(d => d.onclick = () => {
+    const iso = d.dataset.win;
+    if (S.wins[iso]) delete S.wins[iso]; else S.wins[iso] = true;
+    save(); render();
+  });
+  document.querySelectorAll("[data-week]").forEach(b => b.onclick = () => {
+    const dir = +b.dataset.week;
+    if (dir > 0 && WEEK_OFFSET >= 0) return;
+    WEEK_OFFSET += dir; render();
+  });
+  el("goalStickers").onchange = e => { S.weeklyGoalStickers = +e.target.value; save(); render(); };
+  el("rwAdd").onclick = () => {
+    const text = el("rwText").value.trim(); if (!text) return;
+    S.rewards.push({ id: uid(), tier: el("rwTier").value, text, done: false }); save(); render();
+  };
+  document.querySelectorAll("[data-delrw]").forEach(b => b.onclick = () => { S.rewards = S.rewards.filter(r => r.id !== b.dataset.delrw); save(); render(); });
+  document.querySelectorAll("[data-rwdone]").forEach(c => c.onchange = () => { const r = S.rewards.find(x => x.id === c.dataset.rwdone); if (r) { r.done = c.checked; save(); render(); } });
+  enterToClick("rwText", "rwAdd");
+}
+
+function bindTeam() {
+  el("tmAdd").onclick = () => {
+    const name = el("tmName").value.trim(); if (!name) return;
+    S.roster.push({ id: uid(), name, role: el("tmRole").value.trim(), emergency: el("tmEmg").checked }); save(); render();
+  };
+  document.querySelectorAll("[data-deltm]").forEach(b => b.onclick = () => { S.roster = S.roster.filter(r => r.id !== b.dataset.deltm); save(); render(); });
+  enterToClick("tmName", "tmAdd");
+}
+
+function bindProgress() {
+  el("mAdd").onclick = () => {
+    const g = id => { const v = el(id).value; return v === "" ? "" : round1(parseFloat(v)); };
+    const rec = { date: todayISO(), waist: g("mWaist"), chest: g("mChest"), arms: g("mArms"), hips: g("mHips"), thighs: g("mThighs"), shoulders: g("mShoulders"), note: el("mNote").value.trim() };
+    if (![rec.waist, rec.chest, rec.arms, rec.hips, rec.thighs, rec.shoulders].some(v => v !== "") && !rec.note) return;
+    S.measurements = S.measurements.filter(m => m.date !== rec.date);
+    S.measurements.push(rec); save(); render();
+  };
+  document.querySelectorAll("[data-delm]").forEach(b => b.onclick = () => { S.measurements = S.measurements.filter(m => m.date !== b.dataset.delm); save(); render(); });
+}
+
+function bindSettings() {
+  el("pSave").onclick = () => {
+    const p = S.profile;
+    p.name = el("pName").value.trim();
+    p.sex = el("pSex").value;
+    p.age = Math.max(10, Math.min(100, +el("pAge").value || 35));
+    const newUnits = el("pUnits").value;
+    // read height in the CURRENTLY displayed unit
+    if (S.profile.units === "kg") { if (el("pHcm")) p.heightCm = +el("pHcm").value || p.heightCm; }
+    else { const ft = +(el("pHft") || {}).value || 0, inch = +(el("pHin") || {}).value || 0; if (ft || inch) p.heightCm = Math.round((ft * 12 + inch) * 2.54); }
+    // weights entered in current display unit
+    const sv = el("pStart").value, gv = el("pGoal").value;
+    p.startWeightLb = sv === "" ? p.startWeightLb : toLb(parseFloat(sv));
+    p.goalWeightLb = gv === "" ? null : toLb(parseFloat(gv));
+    p.activity = el("pAct").value;
+    p.exerciseLevel = +el("pEx").value;
+    p.units = newUnits;
+    save();
+    el("pSaved").textContent = "✓ Saved";
+    setTimeout(() => { render(); }, 500);
+  };
+  document.querySelectorAll("[data-theme-set]").forEach(b => b.onclick = () => { S.settings.theme = b.dataset.themeSet; save(); applyTheme(); render(); });
+  el("expBtn").onclick = exportData;
+  el("impBtn").onclick = () => el("impFile").click();
+  el("impFile").onchange = importData;
+  el("resetBtn").onclick = () => {
+    if (confirm("Erase ALL your AGD data (weights, logs, lists, everything)? This cannot be undone.")) {
+      localStorage.removeItem(STORE_KEY); S = defaultState(); applyTheme(); showView("today");
+    }
+  };
+}
+
+function enterToClick(inputId, btnId) {
+  const i = el(inputId); if (i) i.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); el(btnId).click(); } };
+}
+
+/* ---------- import / export ---------- */
+function exportData() {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "anything-goes-diet-backup-" + todayISO() + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const m = el("ioMsg"); if (m) m.textContent = "Backup downloaded.";
+}
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      S = deepMerge(defaultState(), data); save(); applyTheme(); render();
+      const m = el("ioMsg"); if (m) m.textContent = "Backup restored ✓";
+    } catch (err) { const m = el("ioMsg"); if (m) { m.style.color = "var(--danger)"; m.textContent = "Could not read that file."; } }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- theme ---------- */
+function applyTheme() {
+  const t = S.settings.theme;
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+}
+el("themeToggle").onclick = () => {
+  const order = ["auto", "light", "dark"];
+  const cur = S.settings.theme;
+  S.settings.theme = order[(order.indexOf(cur) + 1) % order.length];
+  save(); applyTheme();
+  if (CURRENT === "settings") render();
+};
+
+/* ---------- renderer map ---------- */
+const RENDERERS = {
+  today: rToday, weight: rWeight, targets: rTargets, log: rLog, lists: rLists,
+  week: rWeek, team: rTeam, progress: rProgress, learn: rLearn, settings: rSettings
+};
+
+/* ---------- boot ---------- */
+document.getElementById("nav").addEventListener("click", e => {
+  if (e.target.matches(".nav-btn")) showView(e.target.dataset.view);
+});
+applyTheme();
+showView("today");
+</script>
+</body>
+</html>
