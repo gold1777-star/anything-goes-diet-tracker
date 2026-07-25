@@ -315,7 +315,10 @@ function deepMerge(base, over) {
   }
   return over;
 }
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); return true; }
+  catch (e) { return false; } // storage blocked (private mode / strict browser shields)
+}
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
 /* ---------- date helpers (local) ---------- */
@@ -1271,10 +1274,16 @@ function bindSettings() {
     p.goalWeightLb = gv === "" ? null : toLb(parseFloat(gv));
     p.activity = el("pAct").value;
     p.exerciseLevel = +el("pEx").value;
+    const unitsChanged = newUnits !== p.units;
     p.units = newUnits;
-    save();
-    el("pSaved").textContent = "✓ Saved";
-    setTimeout(() => { render(); }, 500);
+    const ok = save();
+    const msg = el("pSaved");
+    if (ok) { msg.textContent = "✓ Saved"; msg.style.color = "var(--primary)"; }
+    else { msg.textContent = "⚠️ Couldn't save — your browser is blocking storage (turn off private mode / shields for this site)."; msg.style.color = "var(--danger)"; }
+    // Only redraw the form when the unit changed (labels + converted values must
+    // update). Otherwise leave the fields exactly as typed — redrawing here was
+    // briefly blanking the form on some browsers even though the data was saved.
+    if (unitsChanged) render();
   };
   document.querySelectorAll("[data-theme-set]").forEach(b => b.onclick = () => { S.settings.theme = b.dataset.themeSet; save(); applyTheme(); render(); });
   el("expBtn").onclick = exportData;
