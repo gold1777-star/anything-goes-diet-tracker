@@ -286,6 +286,7 @@ const defaultState = () => ({
   },
   weights: [],              // {date:'YYYY-MM-DD', lb:Number}
   foodLog: {},              // {date: [{id,name,cal,p,c,f,fiber}]}
+  favorites: [],            // {id,name,cal,p,c,f,fiber} — foods you eat often, quick-add
   lists: { hotButton: [], canDo: [], cantDo: [] },
   roster: [],               // {id,name,role,note,emergency}
   measurements: [],         // {date, waist,chest,arms,hips,thighs,shoulders,clothes,note}
@@ -793,7 +794,20 @@ function rLog() {
       <span>${over ? Math.abs(tgt.dailyTarget - gCal).toLocaleString() + " over — even it out later this week" : (tgt.dailyTarget - gCal).toLocaleString() + " kcal left"}</span></div></div>`;
   }
 
-  // add entry
+  // favorites — foods you eat often, one-tap add
+  out += `<div class="card"><h3>⭐ Favorites</h3>`;
+  if (!S.favorites.length) {
+    out += `<div class="empty">No favorites yet. Tap the ☆ on any logged item or search result to save foods you eat often here.</div>`;
+  } else {
+    for (const f of S.favorites) {
+      out += `<div class="list-item" style="padding:8px 11px"><div class="grow"><div class="name">${esc(f.name)}</div>
+        <div class="meta">${Math.round(num(f.cal))} kcal${f.p ? " · P " + Math.round(num(f.p)) : ""}${f.c ? " · C " + Math.round(num(f.c)) : ""}${f.f ? " · F " + Math.round(num(f.f)) : ""}${f.fiber ? " · Fib " + Math.round(num(f.fiber)) : ""}</div></div>
+        <button class="btn-sm btn-primary" data-addfav="${f.id}">＋ Add</button>
+        <button class="x-btn" data-delfav="${f.id}" title="Remove favorite">×</button></div>`;
+    }
+  }
+  out += `</div>`;
+
   // USDA-powered search (hundreds of thousands of foods) — looks up macros for you
   out += `<div class="card"><h3>🔎 Search foods <span style="font-weight:400;color:var(--muted);font-size:12px">(USDA database)</span></h3>
     <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Search a huge database and tap a result to add it — the calories &amp; macros fill in automatically.</p>
@@ -822,8 +836,10 @@ function rLog() {
   if (!entries.length) out += `<div class="empty">Nothing logged yet. Add your first item above.</div>`;
   else {
     for (const e of entries) {
+      const faved = S.favorites.some(f => f.name.toLowerCase() === e.name.toLowerCase());
       out += `<div class="list-item"><div class="grow"><div class="name">${esc(e.name)}</div>
         <div class="meta">${Math.round(num(e.cal))} kcal${e.p ? " · P " + Math.round(num(e.p)) : ""}${e.c ? " · C " + Math.round(num(e.c)) : ""}${e.f ? " · F " + Math.round(num(e.f)) : ""}${e.fiber ? " · Fib " + Math.round(num(e.fiber)) : ""}</div></div>
+        <button class="x-btn" data-favf="${e.id}" title="${faved ? "In favorites" : "Save to favorites"}" style="${faved ? "color:var(--star)" : ""}">${faved ? "★" : "☆"}</button>
         <button class="x-btn" data-delf="${e.id}">×</button></div>`;
     }
     if (S.settings.applyGuessing) out += `<div class="note pri" style="margin:12px 0 0">Raw logged: <strong>${Math.round(totals.cal).toLocaleString()} kcal</strong> → with +15% guessing: <strong>${gCal.toLocaleString()} kcal</strong>.</div>`;
@@ -1757,6 +1773,21 @@ function bindLog() {
     S.foodLog[LOG_DATE] = (S.foodLog[LOG_DATE] || []).filter(e => e.id !== b.dataset.delf);
     save(); render();
   });
+  // favorites: add a saved favorite to today's log
+  document.querySelectorAll("[data-addfav]").forEach(b => b.onclick = () => {
+    const f = S.favorites.find(x => x.id === b.dataset.addfav); if (!f) return;
+    (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), name: f.name, cal: num(f.cal), p: num(f.p), c: num(f.c), f: num(f.f), fiber: num(f.fiber) });
+    save(); render();
+  });
+  // favorites: remove a favorite
+  document.querySelectorAll("[data-delfav]").forEach(b => b.onclick = () => {
+    S.favorites = S.favorites.filter(x => x.id !== b.dataset.delfav); save(); render();
+  });
+  // favorites: star a logged entry to save it
+  document.querySelectorAll("[data-favf]").forEach(b => b.onclick = () => {
+    const e = (S.foodLog[LOG_DATE] || []).find(x => x.id === b.dataset.favf); if (!e) return;
+    saveFavorite({ name: e.name, cal: e.cal, p: e.p, c: e.c, f: e.f, fiber: e.fiber }); render();
+  });
   // USDA search
   const runSearch = async () => {
     const q = el("usdaQ").value.trim();
@@ -1776,14 +1807,21 @@ function bindLog() {
         return `<div class="list-item" style="padding:8px 11px"><div class="grow">
           <div class="name">${esc(f.name)}</div>
           <div class="meta">per ${esc(f.serv)} · ${Math.round(f.cal)} kcal · P ${Math.round(f.p)} · C ${Math.round(f.c)} · F ${Math.round(f.f)}${f.fiber ? " · Fib " + Math.round(f.fiber) : ""}</div></div>
-          <button class="btn-sm btn-primary" data-usdaadd="${i}">＋ Add</button></div>`;
+          <button class="btn-sm btn-primary" data-usdaadd="${i}">＋ Add</button>
+          <button class="x-btn" data-usdafav="${i}" title="Save to favorites">☆</button></div>`;
       }).join("");
+      const usdaEntry = f => ({ name: f.name + " (" + f.serv + ")", cal: Math.round(f.cal), p: Math.round(f.p), c: Math.round(f.c), f: Math.round(f.f), fiber: Math.round(f.fiber) });
       box.querySelectorAll("[data-usdaadd]").forEach(btn => btn.onclick = () => {
         const f = USDA_CACHE[+btn.dataset.usdaadd]; if (!f) return;
-        (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), name: f.name + " (" + f.serv + ")", cal: Math.round(f.cal), p: Math.round(f.p), c: Math.round(f.c), f: Math.round(f.f), fiber: Math.round(f.fiber) });
+        (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), ...usdaEntry(f) });
         save();
         btn.textContent = "✓ Added";
         btn.disabled = true;
+      });
+      box.querySelectorAll("[data-usdafav]").forEach(btn => btn.onclick = () => {
+        const f = USDA_CACHE[+btn.dataset.usdafav]; if (!f) return;
+        saveFavorite(usdaEntry(f));
+        btn.textContent = "★"; btn.style.color = "var(--star)"; btn.title = "Saved to favorites";
       });
     } catch (e) {
       box.innerHTML = `<div class="note">Couldn't reach the search service. You can add foods manually below.</div>`;
@@ -1793,6 +1831,13 @@ function bindLog() {
   if (el("usdaQ")) el("usdaQ").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
 }
 let USDA_CACHE = {};
+// Save a food to favorites (dedupe by name, case-insensitive)
+function saveFavorite(fav) {
+  const name = (fav.name || "").trim(); if (!name) return;
+  if (S.favorites.some(f => f.name.toLowerCase() === name.toLowerCase())) return;
+  S.favorites.push({ id: uid(), name, cal: num(fav.cal), p: num(fav.p), c: num(fav.c), f: num(fav.f), fiber: num(fav.fiber) });
+  save();
+}
 
 function bindLists() {
   el("hbAdd").onclick = () => {
