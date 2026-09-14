@@ -1182,6 +1182,54 @@ function copyDayToLog(dayIdx) {
   save();
 }
 
+/* ---- grocery list from the whole week's plan ---- */
+const GROCERY_AISLES = [
+  ["veg", "Produce — Vegetables"], ["fruit", "Produce — Fruit"],
+  ["protein", "Proteins & Beans"], ["dairy", "Dairy & Cheese"],
+  ["grain", "Grains, Breads & Starches"], ["fat", "Oils, Fats & Condiments"],
+  ["snack", "Snacks"], ["beverage", "Beverages"]
+];
+function parseServ(serv) {
+  // pull a leading quantity (int, decimal, or simple fraction) + unit from a serving string
+  const m = String(serv).trim().match(/^(\d+\/\d+|\d+(?:\.\d+)?)\s*(.*)$/);
+  if (!m) return { qty: null, unit: serv };
+  let qty = m[1].includes("/") ? (parseInt(m[1].split("/")[0]) / parseInt(m[1].split("/")[1])) : parseFloat(m[1]);
+  return { qty, unit: m[2] || "" };
+}
+function groceryQty(fd, totalServings) {
+  const { qty, unit } = parseServ(fd.serv);
+  if (qty == null) return totalServings + "× " + fd.serv;
+  const total = Math.round(qty * totalServings * 10) / 10;
+  // show the "(N× serving)" hint only when it adds info (base serving isn't "1 unit")
+  return total + " " + unit + (qty !== 1 ? "  (" + totalServings + "× " + fd.serv + ")" : "");
+}
+function buildGrocery(plan) {
+  const agg = {}; // id -> total servings
+  for (const d of plan.days) for (const m of d.meals) for (const it of m.items)
+    agg[it.id] = (agg[it.id] || 0) + it.servings;
+  const byGrp = {};
+  for (const id in agg) {
+    const fd = FOOD_BY_ID[id]; if (!fd) continue;
+    (byGrp[fd.grp] = byGrp[fd.grp] || []).push({ id, fd, servings: Math.round(agg[id] * 2) / 2 });
+  }
+  const groups = [];
+  for (const [grp, label] of GROCERY_AISLES) {
+    if (byGrp[grp] && byGrp[grp].length) {
+      byGrp[grp].sort((a, b) => a.fd.name.localeCompare(b.fd.name));
+      groups.push({ label, items: byGrp[grp] });
+    }
+  }
+  return groups;
+}
+function groceryText(plan) {
+  let out = "Grocery list — week of " + fmtDate(plan.createdISO) + "\n";
+  for (const g of buildGrocery(plan)) {
+    out += "\n" + g.label + "\n";
+    for (const it of g.items) out += "  [ ] " + it.fd.name + " — " + groceryQty(it.fd, it.servings) + "\n";
+  }
+  return out;
+}
+
 function rMeals() {
   const prefs = S.mealPrefs;
   const lw = latestWeight();
@@ -1253,6 +1301,26 @@ function rMeals() {
         ${stat(Math.round(t.fiber) + " g", "Fiber " + (fibOk ? "✅" : ""), fibOk ? "pri" : "")}
       </div></div>`;
     });
+
+    // Grocery list for the whole week
+    const checked = plan.groceryChecked || {};
+    const groups = buildGrocery(plan);
+    out += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+      <h3 style="margin:0">🛒 Grocery List <span style="font-weight:400;color:var(--muted);font-size:12px">· whole week</span></h3>
+      <div class="btn-row"><button class="btn-sm" id="grocCopy">📋 Copy</button><button class="btn-sm" id="grocClear">Clear ticks</button></div></div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Everything your 7-day plan calls for, totaled and grouped by aisle. Tick items as you shop.</p>`;
+    groups.forEach(g => {
+      out += `<h4 style="color:var(--primary);margin:14px 0 6px">${g.label}</h4>`;
+      g.items.forEach(it => {
+        const on = !!checked[it.id];
+        out += `<label class="list-item" style="padding:8px 11px;cursor:pointer">
+          <input type="checkbox" data-groc="${it.id}" ${on ? "checked" : ""} style="width:auto;flex:0 0 auto">
+          <div class="grow"><div class="name" style="${on ? "text-decoration:line-through;opacity:.55" : ""}">${esc(it.fd.name)}</div>
+          <div class="meta">${esc(groceryQty(it.fd, it.servings))}</div></div></label>`;
+      });
+    });
+    out += `<span id="grocMsg" style="display:block;margin-top:10px;font-size:12px;color:var(--primary)"></span></div>`;
+
     out += `<div class="note">These are ideas to riff on — portions are rounded and calories are approximate (remember calorie guessing). Tap 🔄 to swap any item, <strong>↻ Day</strong> to reroll a day, or <strong>＋ To Food Log</strong> to drop a day straight into today's log.</div>`;
   }
   return out;
@@ -1279,6 +1347,21 @@ function bindMeals() {
     b.textContent = "✓ Added to today";
     setTimeout(() => { b.textContent = "＋ To Food Log"; }, 1500);
   });
+  // grocery list
+  document.querySelectorAll("[data-groc]").forEach(cb => cb.onchange = () => {
+    if (!S.mealPlan) return;
+    const gc = (S.mealPlan.groceryChecked = S.mealPlan.groceryChecked || {});
+    if (cb.checked) gc[cb.dataset.groc] = true; else delete gc[cb.dataset.groc];
+    save();
+    const row = cb.closest(".list-item"); const name = row && row.querySelector(".name");
+    if (name) { name.style.textDecoration = cb.checked ? "line-through" : "none"; name.style.opacity = cb.checked ? ".55" : "1"; }
+  });
+  if (el("grocCopy")) el("grocCopy").onclick = async () => {
+    const txt = groceryText(S.mealPlan);
+    try { await navigator.clipboard.writeText(txt); const m = el("grocMsg"); if (m) m.textContent = "Copied to clipboard ✓"; }
+    catch (e) { const m = el("grocMsg"); if (m) { m.style.color = "var(--muted)"; m.textContent = "Couldn't auto-copy — select & copy from a share sheet instead."; } }
+  };
+  if (el("grocClear")) el("grocClear").onclick = () => { if (S.mealPlan) { S.mealPlan.groceryChecked = {}; save(); render(); } };
 }
 
 /* ---------------- LISTS ---------------- */
