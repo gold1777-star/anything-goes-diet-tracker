@@ -216,6 +216,7 @@
     <button class="nav-btn" data-view="weight">Weigh-In</button>
     <button class="nav-btn" data-view="targets">Targets</button>
     <button class="nav-btn" data-view="log">Food Log</button>
+    <button class="nav-btn" data-view="meals">Meal Plan</button>
     <button class="nav-btn" data-view="lists">My Lists</button>
     <button class="nav-btn" data-view="week">Win the Week</button>
     <button class="nav-btn" data-view="team">My Team</button>
@@ -234,6 +235,8 @@
   <section class="view" id="view-targets"></section>
   <!-- FOOD LOG -->
   <section class="view" id="view-log"></section>
+  <!-- MEAL PLAN -->
+  <section class="view" id="view-meals"></section>
   <!-- LISTS -->
   <section class="view" id="view-lists"></section>
   <!-- WIN THE WEEK -->
@@ -289,6 +292,14 @@ const defaultState = () => ({
   wins: {},                 // {date:true}
   weeklyGoalStickers: 5,
   rewards: [],              // {id, tier:'weekly'|'monthly'|'goal', text, done}
+  mealPrefs: {              // meal-plan generator preferences
+    mealsPerDay: 3,         // 3 or 4 (adds a snack)
+    style: "omnivore",      // omnivore | vegetarian | vegan
+    dairy: "limited",       // full | limited (cheese ok, no milk/yogurt) | none
+    avoid: [],              // free-text food/tag substrings to exclude
+    respectLists: true      // also exclude Hot-Button + Can't-Do-Without list items
+  },
+  mealPlan: null,           // { createdISO, days:[{label, meals:[{slot, items:[{id,name,servings,cal,p,c,f,fiber}]}], totals}] }
   settings: { theme: "auto", applyGuessing: true }
 });
 
@@ -810,6 +821,350 @@ function rLog() {
   return out;
 }
 
+/* ================= MEAL PLAN ================= */
+/* Curated, offline food database. Macros are per one serving (serv).
+   grp: protein | dairy | grain | veg | fruit | fat | snack | beverage
+   diet: omni | vegetarian | vegan   (vegetarian style keeps vegan+vegetarian)
+   milkBased: true for milk/yogurt/cottage/ice-cream etc (excluded when dairy != full)
+   slots: which meals a food suits — B breakfast, L lunch, D dinner, S snack */
+const F = (id, name, grp, diet, milkBased, slots, serv, cal, p, c, f, fiber) =>
+  ({ id, name, grp, diet, milkBased, slots, serv, cal, p, c, f, fiber });
+
+const FOODS = [
+  // ---- animal proteins (omni) ----
+  F("chicken_breast","Chicken breast","protein","omni",false,"LD","4 oz",190,36,0,5,0),
+  F("chicken_thigh","Chicken thigh","protein","omni",false,"LD","4 oz",230,28,0,13,0),
+  F("ground_beef","Lean ground beef","protein","omni",false,"LD","4 oz",200,23,0,11,0),
+  F("steak","Sirloin steak","protein","omni",false,"LD","5 oz",300,40,0,15,0),
+  F("pork_chop","Pork chop","protein","omni",false,"LD","4 oz",220,30,0,10,0),
+  F("ground_turkey","Ground turkey","protein","omni",false,"LD","4 oz",170,22,0,9,0),
+  F("salmon","Salmon","protein","omni",false,"LD","4 oz",230,25,0,14,0),
+  F("tuna","Canned tuna","protein","omni",false,"LDS","1 can",120,26,0,1,0),
+  F("shrimp","Shrimp","protein","omni",false,"LD","4 oz",120,24,0,2,0),
+  F("white_fish","White fish (cod/tilapia)","protein","omni",false,"LD","4 oz",110,23,0,2,0),
+  F("deli_turkey","Deli turkey","protein","omni",false,"BLS","3 oz",90,18,1,1,0),
+  F("ham","Ham","protein","omni",false,"BL","3 oz",120,16,1,5,0),
+  F("bacon","Bacon","protein","omni",false,"B","2 slices",80,6,0,7,0),
+  F("sausage","Sausage","protein","omni",false,"BD","2 links",170,10,1,14,0),
+  F("canned_chicken","Canned chicken","protein","omni",false,"LDS","3 oz",90,18,0,2,0),
+  F("jerky","Beef jerky","protein","omni",false,"S","1 oz",80,13,3,1,0),
+  F("eggs","Eggs","protein","vegetarian",false,"BLD","2 large",140,12,1,10,0),
+  // ---- plant proteins (vegan) ----
+  F("tofu","Tofu","protein","vegan",false,"LD","4 oz",90,10,2,5,1),
+  F("tempeh","Tempeh","protein","vegan",false,"LD","3 oz",160,16,8,9,5),
+  F("edamame","Edamame","protein","vegan",false,"LS","1 cup",190,18,15,8,8),
+  F("black_beans","Black beans","protein","vegan",false,"LD","1 cup",220,15,40,1,15),
+  F("chickpeas","Chickpeas","protein","vegan",false,"LDS","1 cup",270,15,45,4,12),
+  F("lentils","Lentils","protein","vegan",false,"LD","1 cup",230,18,40,1,16),
+  F("kidney_beans","Kidney beans","protein","vegan",false,"LD","1 cup",220,15,40,1,13),
+  F("hummus","Hummus","protein","vegan",false,"LS","1/4 cup",100,4,9,6,3),
+  F("peanut_butter","Peanut butter","protein","vegan",false,"BS","2 tbsp",190,8,7,16,2),
+  F("almond_butter","Almond butter","protein","vegan",false,"BS","2 tbsp",180,7,6,16,3),
+  F("mixed_nuts","Mixed nuts","fat","vegan",false,"S","1 oz",170,6,6,15,3),
+  F("almonds","Almonds","fat","vegan",false,"S","1 oz",160,6,6,14,4),
+  F("peanuts","Peanuts","fat","vegan",false,"S","1 oz",160,7,5,14,2),
+  F("seitan","Seitan","protein","vegan",false,"LD","3 oz",110,21,4,1,1),
+  F("whey_protein","Whey protein shake","protein","vegetarian",false,"BS","1 scoop",120,24,3,2,1),
+  F("plant_protein","Plant protein shake","protein","vegan",false,"BS","1 scoop",120,22,4,2,2),
+  // ---- dairy (cheeses = not milkBased; milk/yogurt/cottage = milkBased) ----
+  F("cheddar","Cheddar cheese","dairy","vegetarian",false,"LDS","1 oz",110,7,1,9,0),
+  F("mozzarella","Mozzarella","dairy","vegetarian",false,"LD","1 oz",80,6,1,6,0),
+  F("parmesan","Parmesan","dairy","vegetarian",false,"LD","2 tbsp",40,4,0,3,0),
+  F("feta","Feta","dairy","vegetarian",false,"LDS","1 oz",75,4,1,6,0),
+  F("string_cheese","String cheese","dairy","vegetarian",false,"S","1 stick",80,7,1,6,0),
+  F("cottage_cheese","Cottage cheese","dairy","vegetarian",true,"BS","1/2 cup",90,12,5,2,0),
+  F("greek_yogurt","Greek yogurt","dairy","vegetarian",true,"BS","3/4 cup",130,17,8,0,0),
+  F("milk","Milk","dairy","vegetarian",true,"B","1 cup",120,8,12,5,0),
+  // ---- grains / starch (vegan) ----
+  F("white_rice","White rice","grain","vegan",false,"LD","1 cup",200,4,45,0,1),
+  F("brown_rice","Brown rice","grain","vegan",false,"LD","1 cup",220,5,46,2,4),
+  F("quinoa","Quinoa","grain","vegan",false,"LD","1 cup",220,8,39,4,5),
+  F("pasta","Pasta","grain","vegan",false,"LD","1 cup",200,7,43,1,3),
+  F("bread","Whole-grain bread","grain","vegan",false,"BL","2 slices",160,6,30,2,3),
+  F("bagel","Bagel","grain","vegan",false,"B","1 bagel",270,11,53,2,2),
+  F("tortilla","Flour tortilla","grain","vegan",false,"LD","1 large",150,4,25,4,2),
+  F("oatmeal","Oatmeal","grain","vegan",false,"B","1 cup cooked",150,6,27,3,4),
+  F("potato","Potato","grain","vegan",false,"LD","1 medium",160,4,37,0,4),
+  F("sweet_potato","Sweet potato","grain","vegan",false,"LD","1 medium",180,4,41,0,6),
+  F("couscous","Couscous","grain","vegan",false,"LD","1 cup",180,6,37,0,2),
+  F("corn","Corn","grain","vegan",false,"LDS","1 cup",150,5,31,2,4),
+  F("english_muffin","English muffin","grain","vegan",false,"B","1 muffin",130,5,25,1,2),
+  F("cereal","Cereal","grain","vegan",false,"B","1 cup",150,3,33,1,3),
+  F("granola","Granola","grain","vegan",false,"BS","1/2 cup",230,5,38,8,4),
+  F("crackers","Crackers","grain","vegan",false,"S","10 crackers",150,3,20,6,1),
+  // ---- vegetables (vegan) ----
+  F("broccoli","Broccoli","veg","vegan",false,"LD","1 cup",55,4,11,0,5),
+  F("spinach","Spinach","veg","vegan",false,"BLD","2 cups",20,2,3,0,2),
+  F("salad","Mixed salad","veg","vegan",false,"LD","2 cups",20,2,4,0,2),
+  F("green_beans","Green beans","veg","vegan",false,"LD","1 cup",35,2,8,0,4),
+  F("carrots","Carrots","veg","vegan",false,"LDS","1 cup",50,1,12,0,3),
+  F("bell_pepper","Bell pepper","veg","vegan",false,"LDS","1 cup",40,1,9,0,3),
+  F("zucchini","Zucchini","veg","vegan",false,"LD","1 cup",20,2,4,0,1),
+  F("cauliflower","Cauliflower","veg","vegan",false,"LD","1 cup",27,2,5,0,2),
+  F("asparagus","Asparagus","veg","vegan",false,"LD","1 cup",27,3,5,0,3),
+  F("tomato","Tomato","veg","vegan",false,"LDS","1 cup",30,1,7,0,2),
+  F("cucumber","Cucumber","veg","vegan",false,"LDS","1 cup",16,1,4,0,1),
+  F("mushrooms","Mushrooms","veg","vegan",false,"LD","1 cup",20,3,3,0,1),
+  F("brussels","Brussels sprouts","veg","vegan",false,"LD","1 cup",40,3,8,0,3),
+  F("mixed_veg","Mixed vegetables","veg","vegan",false,"LD","1 cup",60,3,12,0,4),
+  // ---- fruit (vegan) ----
+  F("banana","Banana","fruit","vegan",false,"BS","1 medium",105,1,27,0,3),
+  F("apple","Apple","fruit","vegan",false,"BS","1 medium",95,0,25,0,4),
+  F("orange","Orange","fruit","vegan",false,"BS","1 medium",60,1,15,0,3),
+  F("berries","Mixed berries","fruit","vegan",false,"BS","1 cup",70,1,17,0,4),
+  F("grapes","Grapes","fruit","vegan",false,"S","1 cup",100,1,27,0,1),
+  F("mango","Mango","fruit","vegan",false,"BS","1 cup",100,1,25,0,3),
+  F("pineapple","Pineapple","fruit","vegan",false,"BS","1 cup",80,1,22,0,2),
+  F("watermelon","Watermelon","fruit","vegan",false,"S","1 cup",46,1,12,0,1),
+  F("pear","Pear","fruit","vegan",false,"BS","1 medium",100,1,27,0,6),
+  F("grapefruit","Grapefruit","fruit","vegan",false,"B","1/2 fruit",50,1,13,0,2),
+  // ---- fats / extras ----
+  F("olive_oil","Olive oil","fat","vegan",false,"LD","1 tbsp",120,0,0,14,0),
+  F("butter","Butter","fat","vegetarian",false,"BLD","1 tbsp",100,0,0,11,0),
+  F("avocado","Avocado","fat","vegan",false,"BLS","1/2 fruit",120,1,6,11,5),
+  F("mayo","Mayo","fat","vegetarian",false,"LD","1 tbsp",90,0,0,10,0),
+  F("dressing","Salad dressing","fat","vegan",false,"LD","2 tbsp",120,0,2,12,0),
+  F("guacamole","Guacamole","fat","vegan",false,"LS","1/4 cup",90,1,5,8,4),
+  // ---- snacks / treats ----
+  F("dark_chocolate","Dark chocolate","snack","vegetarian",false,"S","1 oz",170,2,13,12,3),
+  F("popcorn","Popcorn","snack","vegan",false,"S","3 cups",100,3,20,1,4),
+  F("chips","Potato chips","snack","vegan",false,"S","1 oz",150,2,15,10,1),
+  F("cookies","Cookies","snack","vegetarian",false,"S","2 cookies",160,2,22,7,1),
+  F("ice_cream","Ice cream","snack","vegetarian",true,"S","1/2 cup",200,3,24,11,0),
+  F("granola_bar","Granola bar","snack","vegetarian",false,"S","1 bar",190,4,30,6,2),
+  F("trail_mix","Trail mix","snack","vegan",false,"S","1 oz",150,4,14,9,2),
+  F("pretzels","Pretzels","snack","vegan",false,"S","1 oz",110,3,23,1,1),
+  F("rice_cakes","Rice cakes","snack","vegan",false,"S","2 cakes",70,1,15,0,1),
+  F("protein_bar","Protein bar","snack","vegetarian",false,"BS","1 bar",200,20,22,7,3),
+  // ---- beverages ----
+  F("coffee","Coffee (black)","beverage","vegan",false,"B","1 cup",5,0,0,0,0),
+  F("orange_juice","Orange juice","beverage","vegan",false,"B","1 cup",110,2,26,0,0)
+];
+const FOOD_BY_ID = Object.fromEntries(FOODS.map(f => [f.id, f]));
+
+// Calorie split across meals (fractions must sum to 1)
+const MEAL_SPLITS = {
+  3: [["Breakfast", 0.30, "B"], ["Lunch", 0.35, "L"], ["Dinner", 0.35, "D"]],
+  4: [["Breakfast", 0.25, "B"], ["Lunch", 0.30, "L"], ["Dinner", 0.30, "D"], ["Snack", 0.15, "S"]]
+};
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function rand(arr) { return arr.length ? arr[Math.floor(Math.random() * arr.length)] : null; }
+function clampServings(s) { return Math.max(0.5, Math.min(3, Math.round(s * 2) / 2)); }
+
+// Which foods are allowed given preferences + list exclusions
+function allowedFoods(prefs) {
+  const avoid = (prefs.avoid || []).map(a => a.toLowerCase().trim()).filter(Boolean);
+  const listExcl = [];
+  if (prefs.respectLists) {
+    for (const h of S.lists.hotButton) if (h.food) listExcl.push(h.food.toLowerCase());
+    for (const c of S.lists.canDo) if (c) listExcl.push(String(c).toLowerCase());
+  }
+  return FOODS.filter(fd => {
+    if (prefs.style === "vegan" && fd.diet !== "vegan") return false;
+    if (prefs.style === "vegetarian" && fd.diet === "omni") return false;
+    if (prefs.dairy === "none" && (fd.grp === "dairy" || fd.milkBased)) return false;
+    if (prefs.dairy === "limited" && fd.milkBased) return false;
+    const hay = (fd.name + " " + fd.grp).toLowerCase();
+    for (const a of avoid) if (a && hay.includes(a)) return false;
+    for (const x of listExcl) if (x && (hay.includes(x) || x.includes(fd.name.toLowerCase()))) return false;
+    return true;
+  });
+}
+function inSlot(pool, letter, grps) {
+  return pool.filter(fd => fd.slots.includes(letter) && (!grps || grps.includes(fd.grp)));
+}
+function scaleToBudget(items, budget) {
+  let base = items.reduce((s, it) => s + FOOD_BY_ID[it.id].cal * it.servings, 0);
+  if (base <= 0) return items;
+  const factor = budget / base;
+  items.forEach(it => { it.servings = clampServings(it.servings * factor); });
+  return items;
+}
+// Build one meal (array of {id, servings}) for a slot within a calorie budget
+function buildMeal(pool, letter, budget, usedIds) {
+  const fresh = a => a.filter(fd => !usedIds.has(fd.id));
+  let picks = [];
+  if (letter === "B") {
+    const main = rand(fresh(inSlot(pool, "B", ["protein", "grain", "dairy"]))) || rand(inSlot(pool, "B", ["protein", "grain", "dairy"]));
+    const fruit = rand(fresh(inSlot(pool, "B", ["fruit"])));
+    const extra = rand(fresh(inSlot(pool, "B", ["fat", "protein"])));
+    picks = [main, fruit, extra];
+  } else if (letter === "S") {
+    const a = rand(fresh(inSlot(pool, "S"))) || rand(inSlot(pool, "S"));
+    const b = Math.random() < 0.5 ? rand(fresh(inSlot(pool, "S", ["fruit", "protein", "veg"]))) : null;
+    picks = [a, b];
+  } else { // Lunch / Dinner: protein + carb + veg (+ maybe fat)
+    const prot = rand(fresh(inSlot(pool, letter, ["protein", "dairy"]).filter(f => f.p >= 8))) || rand(inSlot(pool, letter, ["protein"]));
+    const carb = rand(fresh(inSlot(pool, letter, ["grain"])));
+    const veg = rand(fresh(inSlot(pool, letter, ["veg"])));
+    const fat = Math.random() < 0.5 ? rand(fresh(inSlot(pool, letter, ["fat"]))) : null;
+    picks = [prot, carb, veg, fat];
+  }
+  const items = picks.filter(Boolean).map(fd => { usedIds.add(fd.id); return { id: fd.id, servings: 1 }; });
+  return scaleToBudget(items, budget);
+}
+function itemMacros(it) {
+  const fd = FOOD_BY_ID[it.id], s = it.servings;
+  return { cal: fd.cal * s, p: fd.p * s, c: fd.c * s, f: fd.f * s, fiber: fd.fiber * s };
+}
+function sumMacros(items) {
+  return items.reduce((t, it) => { const m = itemMacros(it); t.cal += m.cal; t.p += m.p; t.c += m.c; t.f += m.f; t.fiber += m.fiber; return t; }, { cal: 0, p: 0, c: 0, f: 0, fiber: 0 });
+}
+function buildDay(name, pool, target, split, minP) {
+  const used = new Set();
+  const meals = split.map(([label, frac, letter]) => ({ slot: label, letter, items: buildMeal(pool, letter, target * frac, used) }));
+  // light protein nudge: if under minimum, bump the highest-protein item once
+  let day = { name, meals };
+  const t = sumMacros(meals.flatMap(m => m.items));
+  if (minP && t.p < minP * 0.85) {
+    let best = null;
+    for (const m of meals) for (const it of m.items) {
+      const fd = FOOD_BY_ID[it.id];
+      if (fd.p >= 10 && (!best || fd.p > FOOD_BY_ID[best.id].p)) best = it;
+    }
+    if (best) best.servings = clampServings(best.servings + 1);
+  }
+  return day;
+}
+function generatePlan() {
+  const prefs = S.mealPrefs;
+  const pool = allowedFoods(prefs);
+  const lw = latestWeight();
+  const tgt = lw ? calcTargets(lw.lb) : null;
+  const target = tgt ? tgt.dailyTarget : 1800;
+  const mins = minimums(target);
+  const split = MEAL_SPLITS[prefs.mealsPerDay] || MEAL_SPLITS[3];
+  const days = DAY_NAMES.map(n => buildDay(n, pool, target, split, mins.protein));
+  S.mealPlan = { createdISO: todayISO(), target, minP: mins.protein, minFiber: mins.fiber, days };
+  save();
+}
+function regenerateDay(idx) {
+  const prefs = S.mealPrefs, pool = allowedFoods(prefs);
+  const split = MEAL_SPLITS[prefs.mealsPerDay] || MEAL_SPLITS[3];
+  S.mealPlan.days[idx] = buildDay(DAY_NAMES[idx], pool, S.mealPlan.target, split, S.mealPlan.minP);
+  save();
+}
+function swapItem(dayIdx, mealIdx, itemIdx) {
+  const prefs = S.mealPrefs, pool = allowedFoods(prefs);
+  const meal = S.mealPlan.days[dayIdx].meals[mealIdx];
+  const it = meal.items[itemIdx];
+  const cur = FOOD_BY_ID[it.id];
+  const usedIds = new Set(S.mealPlan.days[dayIdx].meals.flatMap(m => m.items.map(x => x.id)));
+  const candidates = inSlot(pool, meal.letter, [cur.grp]).filter(fd => fd.id !== cur.id && !usedIds.has(fd.id));
+  const next = rand(candidates.length ? candidates : inSlot(pool, meal.letter, [cur.grp]).filter(fd => fd.id !== cur.id));
+  if (!next) return;
+  const oldCal = cur.cal * it.servings;
+  meal.items[itemIdx] = { id: next.id, servings: clampServings(oldCal / next.cal || 1) };
+  save();
+}
+function copyDayToLog(dayIdx) {
+  const day = S.mealPlan.days[dayIdx];
+  const iso = todayISO();
+  const arr = (S.foodLog[iso] = S.foodLog[iso] || []);
+  for (const m of day.meals) for (const it of m.items) {
+    const fd = FOOD_BY_ID[it.id], mac = itemMacros(it);
+    arr.push({ id: uid(), name: fd.name + " (" + it.servings + "× " + fd.serv + ")", cal: Math.round(mac.cal), p: Math.round(mac.p), c: Math.round(mac.c), f: Math.round(mac.f), fiber: Math.round(mac.fiber) });
+  }
+  save();
+}
+
+function rMeals() {
+  const prefs = S.mealPrefs;
+  const lw = latestWeight();
+  const tgt = lw ? calcTargets(lw.lb) : null;
+  const target = tgt ? tgt.dailyTarget : null;
+
+  let out = `<h2>Weekly Meal Plan</h2>
+    <p class="lead">Suggestions, not a straitjacket — a starting week that lands near your calorie target and clears your minimums. Swap anything, regenerate what you don't fancy, and remember: <strong>no food is off-limits</strong>. Use it as a scaffold, then make it yours.</p>`;
+
+  if (!target) {
+    out += `<div class="note pri">Add a weigh-in and goal first so the plan can size portions to your target. <a href="#" data-go="weight">Log a weigh-in →</a></div>`;
+  }
+
+  // preferences
+  out += `<div class="card"><h3>Preferences</h3>
+    <div class="grid grid-2">
+      <label class="field"><span>Meals per day</span>
+        <select id="mpMeals"><option value="3" ${prefs.mealsPerDay == 3 ? "selected" : ""}>3 meals</option><option value="4" ${prefs.mealsPerDay == 4 ? "selected" : ""}>3 meals + snack</option></select></label>
+      <label class="field"><span>Eating style</span>
+        <select id="mpStyle">
+          <option value="omnivore" ${prefs.style === "omnivore" ? "selected" : ""}>Omnivore (everything)</option>
+          <option value="vegetarian" ${prefs.style === "vegetarian" ? "selected" : ""}>Vegetarian</option>
+          <option value="vegan" ${prefs.style === "vegan" ? "selected" : ""}>Vegan</option>
+        </select></label>
+    </div>
+    <div class="grid grid-2">
+      <label class="field"><span>Dairy</span>
+        <select id="mpDairy">
+          <option value="full" ${prefs.dairy === "full" ? "selected" : ""}>Include all dairy</option>
+          <option value="limited" ${prefs.dairy === "limited" ? "selected" : ""}>Limited — cheese ok, no milk/yogurt/cottage</option>
+          <option value="none" ${prefs.dairy === "none" ? "selected" : ""}>No dairy at all</option>
+        </select></label>
+      <label class="field"><span>Also avoid (comma-separated)</span>
+        <input type="text" id="mpAvoid" value="${esc((prefs.avoid || []).join(", "))}" placeholder="e.g. shrimp, mushrooms"></label>
+    </div>
+    <label class="switch" style="margin-bottom:14px"><input type="checkbox" id="mpLists" ${prefs.respectLists ? "checked" : ""}> Keep my Hot-Button &amp; "Can Do Without" foods out of the plan</label>
+    <div class="btn-row"><button class="btn-primary" id="mpGen">${S.mealPlan ? "↻ Regenerate whole week" : "✨ Generate my week"}</button>
+      ${S.mealPlan ? `<span style="align-self:center;font-size:12px;color:var(--muted)">created ${fmtDate(S.mealPlan.createdISO)}</span>` : ""}</div>
+  </div>`;
+
+  if (S.mealPlan) {
+    const plan = S.mealPlan;
+    out += `<div class="note pri" style="margin-bottom:16px">Target ≈ <strong>${plan.target.toLocaleString()} kcal/day</strong> · protein min <strong>${plan.minP} g</strong> · fiber min <strong>${plan.minFiber} g</strong>. Green means the day meets it.</div>`;
+    plan.days.forEach((day, di) => {
+      const t = sumMacros(day.meals.flatMap(m => m.items));
+      const calOk = Math.abs(t.cal - plan.target) <= plan.target * 0.1;
+      const pOk = t.p >= plan.minP * 0.9;
+      const fibOk = t.fiber >= plan.minFiber * 0.85;
+      out += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <h3 style="margin:0">${day.name}</h3>
+        <div class="btn-row"><button class="btn-sm" data-regenday="${di}">↻ Day</button><button class="btn-sm" data-copyday="${di}">＋ To Food Log</button></div></div>`;
+      day.meals.forEach((m, mi) => {
+        out += `<div style="margin:10px 0 4px"><h4 style="color:var(--primary);margin-bottom:6px">${m.slot}</h4>`;
+        m.items.forEach((it, ii) => {
+          const fd = FOOD_BY_ID[it.id], mac = itemMacros(it);
+          out += `<div class="list-item" style="padding:8px 11px"><div class="grow">
+            <div class="name">${esc(fd.name)} <span style="color:var(--muted);font-weight:500">· ${it.servings}× ${esc(fd.serv)}</span></div>
+            <div class="meta">${Math.round(mac.cal)} kcal · P ${Math.round(mac.p)} · C ${Math.round(mac.c)} · F ${Math.round(mac.f)}${mac.fiber ? " · Fib " + Math.round(mac.fiber) : ""}</div></div>
+            <button class="btn-sm" data-swap="${di}-${mi}-${ii}" title="Swap for something else">🔄</button></div>`;
+        });
+        out += `</div>`;
+      });
+      out += `<div class="stat-row" style="margin-top:12px">
+        ${stat(Math.round(t.cal).toLocaleString(), "Calories", calOk ? "pri" : "", "target " + plan.target.toLocaleString())}
+        ${stat(Math.round(t.p) + " g", "Protein " + (pOk ? "✅" : ""), pOk ? "pri" : "")}
+        ${stat(Math.round(t.c) + " g", "Carbs")}
+        ${stat(Math.round(t.fiber) + " g", "Fiber " + (fibOk ? "✅" : ""), fibOk ? "pri" : "")}
+      </div></div>`;
+    });
+    out += `<div class="note">These are ideas to riff on — portions are rounded and calories are approximate (remember calorie guessing). Tap 🔄 to swap any item, <strong>↻ Day</strong> to reroll a day, or <strong>＋ To Food Log</strong> to drop a day straight into today's log.</div>`;
+  }
+  return out;
+}
+
+function bindMeals() {
+  const savePrefs = () => {
+    S.mealPrefs.mealsPerDay = +el("mpMeals").value;
+    S.mealPrefs.style = el("mpStyle").value;
+    S.mealPrefs.dairy = el("mpDairy").value;
+    S.mealPrefs.avoid = el("mpAvoid").value.split(",").map(x => x.trim()).filter(Boolean);
+    S.mealPrefs.respectLists = el("mpLists").checked;
+    save();
+  };
+  ["mpMeals", "mpStyle", "mpDairy", "mpLists"].forEach(id => { const e = el(id); if (e) e.onchange = savePrefs; });
+  el("mpGen").onclick = () => { savePrefs(); generatePlan(); render(); };
+  document.querySelectorAll("[data-regenday]").forEach(b => b.onclick = () => { savePrefs(); regenerateDay(+b.dataset.regenday); render(); });
+  document.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => {
+    const [d, m, i] = b.dataset.swap.split("-").map(Number); swapItem(d, m, i); render();
+  });
+  document.querySelectorAll("[data-copyday]").forEach(b => b.onclick = () => {
+    copyDayToLog(+b.dataset.copyday);
+    b.textContent = "✓ Added to today";
+    setTimeout(() => { b.textContent = "＋ To Food Log"; }, 1500);
+  });
+}
+
 /* ---------------- LISTS ---------------- */
 function rLists() {
   let out = `<h2>My Lists</h2>
@@ -1164,6 +1519,7 @@ function bindDynamic() {
   const V = CURRENT;
   if (V === "weight") bindWeight();
   else if (V === "log") bindLog();
+  else if (V === "meals") bindMeals();
   else if (V === "lists") bindLists();
   else if (V === "week") bindWeek();
   else if (V === "team") bindTeam();
@@ -1339,7 +1695,7 @@ el("themeToggle").onclick = () => {
 
 /* ---------- renderer map ---------- */
 const RENDERERS = {
-  today: rToday, weight: rWeight, targets: rTargets, log: rLog, lists: rLists,
+  today: rToday, weight: rWeight, targets: rTargets, log: rLog, meals: rMeals, lists: rLists,
   week: rWeek, team: rTeam, progress: rProgress, learn: rLearn, settings: rSettings
 };
 
