@@ -297,7 +297,8 @@ const defaultState = () => ({
     style: "omnivore",      // omnivore | vegetarian | vegan
     dairy: "limited",       // full | limited (cheese ok, no milk/yogurt) | none
     avoid: [],              // free-text food/tag substrings to exclude
-    respectLists: true      // also exclude Hot-Button + Can't-Do-Without list items
+    respectLists: true,     // also exclude Hot-Button + Can't-Do-Without list items
+    foodCombining: true     // keep starchy carbs separate from protein/fat in each meal
   },
   mealPlan: null,           // { createdISO, days:[{label, meals:[{slot, items:[{id,name,servings,cal,p,c,f,fiber}]}], totals}] }
   settings: { theme: "auto", applyGuessing: true }
@@ -793,6 +794,16 @@ function rLog() {
   }
 
   // add entry
+  // USDA-powered search (hundreds of thousands of foods) — looks up macros for you
+  out += `<div class="card"><h3>🔎 Search foods <span style="font-weight:400;color:var(--muted);font-size:12px">(USDA database)</span></h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Search a huge database and tap a result to add it — the calories &amp; macros fill in automatically.</p>
+    <div class="inline-inputs">
+      <input type="text" id="usdaQ" placeholder="e.g. grilled chicken, greek salad, banana bread…">
+      <button class="btn-primary" id="usdaBtn" style="flex:0 0 auto">Search</button>
+    </div>
+    <div id="usdaResults" style="margin-top:12px"></div>
+  </div>`;
+
   out += `<div class="card"><h3>Add food</h3>
     <label class="field"><span>What did you eat?</span><input type="text" id="fName" placeholder="e.g. Coffee &amp; donut, slice of pizza…"></label>
     <div class="inline-inputs">
@@ -834,44 +845,63 @@ const FOODS = [
   // ---- animal proteins (omni) ----
   F("chicken_breast","Chicken breast","protein","omni",false,"LD","4 oz",190,36,0,5,0),
   F("chicken_thigh","Chicken thigh","protein","omni",false,"LD","4 oz",230,28,0,13,0),
+  F("rotisserie_chicken","Rotisserie chicken","protein","omni",false,"LDS","4 oz",220,30,0,11,0),
   F("ground_beef","Lean ground beef","protein","omni",false,"LD","4 oz",200,23,0,11,0),
   F("steak","Sirloin steak","protein","omni",false,"LD","5 oz",300,40,0,15,0),
+  F("meatballs","Meatballs","protein","omni",false,"LD","4 meatballs",250,20,6,16,0),
   F("pork_chop","Pork chop","protein","omni",false,"LD","4 oz",220,30,0,10,0),
+  F("pork_tenderloin","Pork tenderloin","protein","omni",false,"LD","4 oz",170,26,0,7,0),
   F("ground_turkey","Ground turkey","protein","omni",false,"LD","4 oz",170,22,0,9,0),
+  F("turkey_breast","Roast turkey breast","protein","omni",false,"LD","4 oz",150,34,0,1,0),
+  F("roast_beef","Roast beef","protein","omni",false,"LDS","3 oz",130,24,0,4,0),
   F("salmon","Salmon","protein","omni",false,"LD","4 oz",230,25,0,14,0),
+  F("canned_salmon","Canned salmon","protein","omni",false,"LDS","3 oz",120,17,0,5,0),
   F("tuna","Canned tuna","protein","omni",false,"LDS","1 can",120,26,0,1,0),
+  F("sardines","Sardines","protein","omni",false,"LS","1 can",190,23,0,11,0),
   F("shrimp","Shrimp","protein","omni",false,"LD","4 oz",120,24,0,2,0),
   F("white_fish","White fish (cod/tilapia)","protein","omni",false,"LD","4 oz",110,23,0,2,0),
   F("deli_turkey","Deli turkey","protein","omni",false,"BLS","3 oz",90,18,1,1,0),
   F("ham","Ham","protein","omni",false,"BL","3 oz",120,16,1,5,0),
   F("bacon","Bacon","protein","omni",false,"B","2 slices",80,6,0,7,0),
   F("sausage","Sausage","protein","omni",false,"BD","2 links",170,10,1,14,0),
+  F("chicken_sausage","Chicken sausage","protein","omni",false,"BLD","1 link",120,12,2,7,0),
+  F("hot_dog","Hot dog","protein","omni",false,"LDS","1 frank",150,6,2,13,0),
   F("canned_chicken","Canned chicken","protein","omni",false,"LDS","3 oz",90,18,0,2,0),
   F("jerky","Beef jerky","protein","omni",false,"S","1 oz",80,13,3,1,0),
   F("eggs","Eggs","protein","vegetarian",false,"BLD","2 large",140,12,1,10,0),
+  F("egg_whites","Egg whites","protein","vegetarian",false,"BL","4 whites",70,14,1,0,0),
   // ---- plant proteins (vegan) ----
   F("tofu","Tofu","protein","vegan",false,"LD","4 oz",90,10,2,5,1),
   F("tempeh","Tempeh","protein","vegan",false,"LD","3 oz",160,16,8,9,5),
   F("edamame","Edamame","protein","vegan",false,"LS","1 cup",190,18,15,8,8),
   F("black_beans","Black beans","protein","vegan",false,"LD","1 cup",220,15,40,1,15),
+  F("pinto_beans","Pinto beans","protein","vegan",false,"LD","1 cup",245,15,45,1,15),
   F("chickpeas","Chickpeas","protein","vegan",false,"LDS","1 cup",270,15,45,4,12),
   F("lentils","Lentils","protein","vegan",false,"LD","1 cup",230,18,40,1,16),
   F("kidney_beans","Kidney beans","protein","vegan",false,"LD","1 cup",220,15,40,1,13),
+  F("veggie_burger","Veggie burger","protein","vegan",false,"LD","1 patty",180,20,9,7,4),
   F("hummus","Hummus","protein","vegan",false,"LS","1/4 cup",100,4,9,6,3),
   F("peanut_butter","Peanut butter","protein","vegan",false,"BS","2 tbsp",190,8,7,16,2),
   F("almond_butter","Almond butter","protein","vegan",false,"BS","2 tbsp",180,7,6,16,3),
-  F("mixed_nuts","Mixed nuts","fat","vegan",false,"S","1 oz",170,6,6,15,3),
-  F("almonds","Almonds","fat","vegan",false,"S","1 oz",160,6,6,14,4),
-  F("peanuts","Peanuts","fat","vegan",false,"S","1 oz",160,7,5,14,2),
   F("seitan","Seitan","protein","vegan",false,"LD","3 oz",110,21,4,1,1),
   F("whey_protein","Whey protein shake","protein","vegetarian",false,"BS","1 scoop",120,24,3,2,1),
   F("plant_protein","Plant protein shake","protein","vegan",false,"BS","1 scoop",120,22,4,2,2),
+  // ---- nuts & seeds (fat) ----
+  F("mixed_nuts","Mixed nuts","fat","vegan",false,"S","1 oz",170,6,6,15,3),
+  F("almonds","Almonds","fat","vegan",false,"S","1 oz",160,6,6,14,4),
+  F("peanuts","Peanuts","fat","vegan",false,"S","1 oz",160,7,5,14,2),
+  F("walnuts","Walnuts","fat","vegan",false,"S","1 oz",185,4,4,18,2),
+  F("cashews","Cashews","fat","vegan",false,"S","1 oz",155,5,9,12,1),
+  F("pumpkin_seeds","Pumpkin seeds","fat","vegan",false,"S","1 oz",150,9,4,13,2),
+  F("sunflower_seeds","Sunflower seeds","fat","vegan",false,"S","1 oz",165,5,7,14,3),
   // ---- dairy (cheeses = not milkBased; milk/yogurt/cottage = milkBased) ----
   F("cheddar","Cheddar cheese","dairy","vegetarian",false,"LDS","1 oz",110,7,1,9,0),
   F("mozzarella","Mozzarella","dairy","vegetarian",false,"LD","1 oz",80,6,1,6,0),
   F("parmesan","Parmesan","dairy","vegetarian",false,"LD","2 tbsp",40,4,0,3,0),
   F("feta","Feta","dairy","vegetarian",false,"LDS","1 oz",75,4,1,6,0),
+  F("swiss","Swiss cheese","dairy","vegetarian",false,"LDS","1 oz",105,8,1,8,0),
   F("string_cheese","String cheese","dairy","vegetarian",false,"S","1 stick",80,7,1,6,0),
+  F("cream_cheese","Cream cheese","dairy","vegetarian",false,"BS","2 tbsp",100,2,2,10,0),
   F("cottage_cheese","Cottage cheese","dairy","vegetarian",true,"BS","1/2 cup",90,12,5,2,0),
   F("greek_yogurt","Greek yogurt","dairy","vegetarian",true,"BS","3/4 cup",130,17,8,0,0),
   F("milk","Milk","dairy","vegetarian",true,"B","1 cup",120,8,12,5,0),
@@ -880,21 +910,35 @@ const FOODS = [
   F("brown_rice","Brown rice","grain","vegan",false,"LD","1 cup",220,5,46,2,4),
   F("quinoa","Quinoa","grain","vegan",false,"LD","1 cup",220,8,39,4,5),
   F("pasta","Pasta","grain","vegan",false,"LD","1 cup",200,7,43,1,3),
+  F("rice_noodles","Rice noodles","grain","vegan",false,"LD","1 cup",190,3,44,0,1),
   F("bread","Whole-grain bread","grain","vegan",false,"BL","2 slices",160,6,30,2,3),
   F("bagel","Bagel","grain","vegan",false,"B","1 bagel",270,11,53,2,2),
   F("tortilla","Flour tortilla","grain","vegan",false,"LD","1 large",150,4,25,4,2),
+  F("pita","Pita bread","grain","vegan",false,"LD","1 pocket",165,6,33,1,2),
+  F("dinner_roll","Dinner roll","grain","vegan",false,"LD","1 roll",120,4,22,2,1),
   F("oatmeal","Oatmeal","grain","vegan",false,"B","1 cup cooked",150,6,27,3,4),
+  F("grits","Grits","grain","vegan",false,"B","1 cup",150,4,32,1,2),
   F("potato","Potato","grain","vegan",false,"LD","1 medium",160,4,37,0,4),
+  F("mashed_potato","Mashed potato (plain)","grain","vegan",false,"LD","1 cup",210,4,35,7,3),
   F("sweet_potato","Sweet potato","grain","vegan",false,"LD","1 medium",180,4,41,0,6),
   F("couscous","Couscous","grain","vegan",false,"LD","1 cup",180,6,37,0,2),
+  F("polenta","Polenta","grain","vegan",false,"LD","1 cup",145,3,31,1,2),
   F("corn","Corn","grain","vegan",false,"LDS","1 cup",150,5,31,2,4),
   F("english_muffin","English muffin","grain","vegan",false,"B","1 muffin",130,5,25,1,2),
   F("cereal","Cereal","grain","vegan",false,"B","1 cup",150,3,33,1,3),
+  F("plantain","Plantain","grain","vegan",false,"LDS","1 cup",180,2,48,0,3),
+  // mixed starch+fat items (only offered when food-combining is OFF)
   F("granola","Granola","grain","vegan",false,"BS","1/2 cup",230,5,38,8,4),
   F("crackers","Crackers","grain","vegan",false,"S","10 crackers",150,3,20,6,1),
-  // ---- vegetables (vegan) ----
+  F("pancakes","Pancakes","grain","vegetarian",false,"B","2 pancakes",220,6,28,9,1),
+  F("waffle","Waffle","grain","vegetarian",false,"B","1 waffle",200,5,25,9,1),
+  F("muffin","Muffin","grain","vegetarian",false,"BS","1 muffin",340,5,52,13,1),
+  F("fries","French fries","grain","vegan",false,"LDS","1 cup",300,4,40,15,4),
+  F("hash_browns","Hash browns","grain","vegan",false,"B","1 cup",240,3,30,13,3),
+  // ---- vegetables (vegan, simple carbs) ----
   F("broccoli","Broccoli","veg","vegan",false,"LD","1 cup",55,4,11,0,5),
   F("spinach","Spinach","veg","vegan",false,"BLD","2 cups",20,2,3,0,2),
+  F("kale","Kale","veg","vegan",false,"LD","2 cups",70,4,10,1,4),
   F("salad","Mixed salad","veg","vegan",false,"LD","2 cups",20,2,4,0,2),
   F("green_beans","Green beans","veg","vegan",false,"LD","1 cup",35,2,8,0,4),
   F("carrots","Carrots","veg","vegan",false,"LDS","1 cup",50,1,12,0,3),
@@ -906,41 +950,76 @@ const FOODS = [
   F("cucumber","Cucumber","veg","vegan",false,"LDS","1 cup",16,1,4,0,1),
   F("mushrooms","Mushrooms","veg","vegan",false,"LD","1 cup",20,3,3,0,1),
   F("brussels","Brussels sprouts","veg","vegan",false,"LD","1 cup",40,3,8,0,3),
+  F("cabbage","Cabbage","veg","vegan",false,"LD","1 cup",22,1,5,0,2),
+  F("celery","Celery","veg","vegan",false,"LDS","1 cup",16,1,3,0,2),
+  F("eggplant","Eggplant","veg","vegan",false,"LD","1 cup",35,1,8,0,3),
+  F("squash","Summer squash","veg","vegan",false,"LD","1 cup",36,2,8,0,3),
   F("mixed_veg","Mixed vegetables","veg","vegan",false,"LD","1 cup",60,3,12,0,4),
-  // ---- fruit (vegan) ----
+  // ---- fruit (vegan, simple carbs) ----
   F("banana","Banana","fruit","vegan",false,"BS","1 medium",105,1,27,0,3),
   F("apple","Apple","fruit","vegan",false,"BS","1 medium",95,0,25,0,4),
   F("orange","Orange","fruit","vegan",false,"BS","1 medium",60,1,15,0,3),
   F("berries","Mixed berries","fruit","vegan",false,"BS","1 cup",70,1,17,0,4),
+  F("blueberries","Blueberries","fruit","vegan",false,"BS","1 cup",85,1,21,0,4),
+  F("strawberries","Strawberries","fruit","vegan",false,"BS","1 cup",50,1,12,0,3),
   F("grapes","Grapes","fruit","vegan",false,"S","1 cup",100,1,27,0,1),
   F("mango","Mango","fruit","vegan",false,"BS","1 cup",100,1,25,0,3),
   F("pineapple","Pineapple","fruit","vegan",false,"BS","1 cup",80,1,22,0,2),
   F("watermelon","Watermelon","fruit","vegan",false,"S","1 cup",46,1,12,0,1),
+  F("cantaloupe","Cantaloupe","fruit","vegan",false,"BS","1 cup",55,1,13,0,1),
   F("pear","Pear","fruit","vegan",false,"BS","1 medium",100,1,27,0,6),
+  F("peach","Peach","fruit","vegan",false,"BS","1 medium",60,1,15,0,2),
   F("grapefruit","Grapefruit","fruit","vegan",false,"B","1/2 fruit",50,1,13,0,2),
+  F("kiwi","Kiwi","fruit","vegan",false,"BS","2 fruit",90,2,22,1,4),
   // ---- fats / extras ----
   F("olive_oil","Olive oil","fat","vegan",false,"LD","1 tbsp",120,0,0,14,0),
   F("butter","Butter","fat","vegetarian",false,"BLD","1 tbsp",100,0,0,11,0),
   F("avocado","Avocado","fat","vegan",false,"BLS","1/2 fruit",120,1,6,11,5),
   F("mayo","Mayo","fat","vegetarian",false,"LD","1 tbsp",90,0,0,10,0),
   F("dressing","Salad dressing","fat","vegan",false,"LD","2 tbsp",120,0,2,12,0),
+  F("ranch","Ranch dressing","fat","vegetarian",false,"LDS","2 tbsp",130,1,2,14,0),
   F("guacamole","Guacamole","fat","vegan",false,"LS","1/4 cup",90,1,5,8,4),
+  F("olives","Olives","fat","vegan",false,"LS","10 olives",50,0,3,5,1),
+  F("pesto","Pesto","fat","vegetarian",false,"LD","2 tbsp",160,2,2,16,1),
   // ---- snacks / treats ----
   F("dark_chocolate","Dark chocolate","snack","vegetarian",false,"S","1 oz",170,2,13,12,3),
   F("popcorn","Popcorn","snack","vegan",false,"S","3 cups",100,3,20,1,4),
+  F("pretzels","Pretzels","snack","vegan",false,"S","1 oz",110,3,23,1,1),
+  F("rice_cakes","Rice cakes","snack","vegan",false,"S","2 cakes",70,1,15,0,1),
   F("chips","Potato chips","snack","vegan",false,"S","1 oz",150,2,15,10,1),
   F("cookies","Cookies","snack","vegetarian",false,"S","2 cookies",160,2,22,7,1),
   F("ice_cream","Ice cream","snack","vegetarian",true,"S","1/2 cup",200,3,24,11,0),
   F("granola_bar","Granola bar","snack","vegetarian",false,"S","1 bar",190,4,30,6,2),
   F("trail_mix","Trail mix","snack","vegan",false,"S","1 oz",150,4,14,9,2),
-  F("pretzels","Pretzels","snack","vegan",false,"S","1 oz",110,3,23,1,1),
-  F("rice_cakes","Rice cakes","snack","vegan",false,"S","2 cakes",70,1,15,0,1),
   F("protein_bar","Protein bar","snack","vegetarian",false,"BS","1 bar",200,20,22,7,3),
+  F("pickles","Pickles","veg","vegan",false,"LDS","1 cup",20,1,4,0,2),
   // ---- beverages ----
   F("coffee","Coffee (black)","beverage","vegan",false,"B","1 cup",5,0,0,0,0),
   F("orange_juice","Orange juice","beverage","vegan",false,"B","1 cup",110,2,26,0,0)
 ];
 const FOOD_BY_ID = Object.fromEntries(FOODS.map(f => [f.id, f]));
+
+/* Food-combining class: 'starch' | 'proteinfat' | 'simple' | 'mixed'.
+   Derived from grp, with explicit overrides for snacks/mixed items.
+   Rule (when foodCombining is on): a meal must not put 'starch' together with
+   any 'proteinfat'; 'simple' (non-starchy veg/fruit) pairs with anything;
+   'mixed' items (inherently starch+fat, e.g. fries, cookies) are skipped. */
+const COMBINE_OVERRIDE = {
+  popcorn: "starch", rice_cakes: "starch", pretzels: "starch",
+  granola: "mixed", crackers: "mixed", pancakes: "mixed", waffle: "mixed",
+  muffin: "mixed", fries: "mixed", hash_browns: "mixed",
+  chips: "mixed", cookies: "mixed", ice_cream: "mixed", granola_bar: "mixed",
+  dark_chocolate: "proteinfat", jerky: "proteinfat", protein_bar: "proteinfat", trail_mix: "proteinfat"
+};
+function combineClass(fd) {
+  if (COMBINE_OVERRIDE[fd.id]) return COMBINE_OVERRIDE[fd.id];
+  switch (fd.grp) {
+    case "grain": return "starch";
+    case "veg": case "fruit": case "beverage": return "simple";
+    case "fat": case "protein": case "dairy": return "proteinfat";
+    default: return "mixed";
+  }
+}
 
 // Calorie split across meals (fractions must sum to 1)
 const MEAL_SPLITS = {
@@ -965,6 +1044,7 @@ function allowedFoods(prefs) {
     if (prefs.style === "vegetarian" && fd.diet === "omni") return false;
     if (prefs.dairy === "none" && (fd.grp === "dairy" || fd.milkBased)) return false;
     if (prefs.dairy === "limited" && fd.milkBased) return false;
+    if (prefs.foodCombining && combineClass(fd) === "mixed") return false; // skip starch+fat combos
     const hay = (fd.name + " " + fd.grp).toLowerCase();
     for (const a of avoid) if (a && hay.includes(a)) return false;
     for (const x of listExcl) if (x && (hay.includes(x) || x.includes(fd.name.toLowerCase()))) return false;
@@ -974,6 +1054,7 @@ function allowedFoods(prefs) {
 function inSlot(pool, letter, grps) {
   return pool.filter(fd => fd.slots.includes(letter) && (!grps || grps.includes(fd.grp)));
 }
+function byClass(list, cls) { return list.filter(fd => combineClass(fd) === cls); }
 function scaleToBudget(items, budget) {
   let base = items.reduce((s, it) => s + FOOD_BY_ID[it.id].cal * it.servings, 0);
   if (base <= 0) return items;
@@ -981,27 +1062,45 @@ function scaleToBudget(items, budget) {
   items.forEach(it => { it.servings = clampServings(it.servings * factor); });
   return items;
 }
-// Build one meal (array of {id, servings}) for a slot within a calorie budget
-function buildMeal(pool, letter, budget, usedIds) {
+// Build one meal for a slot within a calorie budget.
+// archetype (only used when combining): 'starch' | 'proteinfat'
+function buildMeal(pool, letter, budget, usedIds, combining, archetype) {
   const fresh = a => a.filter(fd => !usedIds.has(fd.id));
+  const pickFresh = (a) => rand(fresh(a)) || rand(a);
   let picks = [];
-  if (letter === "B") {
-    const main = rand(fresh(inSlot(pool, "B", ["protein", "grain", "dairy"]))) || rand(inSlot(pool, "B", ["protein", "grain", "dairy"]));
-    const fruit = rand(fresh(inSlot(pool, "B", ["fruit"])));
-    const extra = rand(fresh(inSlot(pool, "B", ["fat", "protein"])));
-    picks = [main, fruit, extra];
+
+  if (combining) {
+    const simpleVeg = inSlot(pool, letter, ["veg"]);
+    const simpleFruit = inSlot(pool, letter, ["fruit"]);
+    if (archetype === "starch") {
+      // starchy carbs + simple carbs only (no protein / no fat)
+      const starches = byClass(inSlot(pool, letter, ["grain"]), "starch");
+      picks = [pickFresh(starches)];
+      if (letter === "B") picks.push(pickFresh(simpleFruit));
+      else { picks.push(pickFresh(simpleVeg)); if (Math.random() < 0.4) picks.push(pickFresh(simpleFruit)); }
+      // sometimes a second starch to fill the budget
+      if (letter !== "S" && Math.random() < 0.4) picks.push(pickFresh(starches));
+    } else {
+      // protein + fat + simple carbs (no starch)
+      const prot = byClass(inSlot(pool, letter, ["protein", "dairy"]), "proteinfat");
+      const fats = byClass(inSlot(pool, letter, ["fat"]), "proteinfat");
+      picks = [pickFresh(prot)];
+      if (Math.random() < 0.7) picks.push(pickFresh(fats));
+      if (letter === "B") picks.push(pickFresh(simpleFruit.length ? simpleFruit : simpleVeg));
+      else { picks.push(pickFresh(simpleVeg)); if (Math.random() < 0.35) picks.push(pickFresh(simpleFruit)); }
+    }
+  } else if (letter === "B") {
+    const main = pickFresh(inSlot(pool, "B", ["protein", "grain", "dairy"]));
+    picks = [main, pickFresh(inSlot(pool, "B", ["fruit"])), (Math.random() < 0.6 ? pickFresh(inSlot(pool, "B", ["fat", "protein"])) : null)];
   } else if (letter === "S") {
-    const a = rand(fresh(inSlot(pool, "S"))) || rand(inSlot(pool, "S"));
-    const b = Math.random() < 0.5 ? rand(fresh(inSlot(pool, "S", ["fruit", "protein", "veg"]))) : null;
-    picks = [a, b];
-  } else { // Lunch / Dinner: protein + carb + veg (+ maybe fat)
-    const prot = rand(fresh(inSlot(pool, letter, ["protein", "dairy"]).filter(f => f.p >= 8))) || rand(inSlot(pool, letter, ["protein"]));
-    const carb = rand(fresh(inSlot(pool, letter, ["grain"])));
-    const veg = rand(fresh(inSlot(pool, letter, ["veg"])));
-    const fat = Math.random() < 0.5 ? rand(fresh(inSlot(pool, letter, ["fat"]))) : null;
-    picks = [prot, carb, veg, fat];
+    picks = [pickFresh(inSlot(pool, "S")), (Math.random() < 0.5 ? pickFresh(inSlot(pool, "S", ["fruit", "protein", "veg"])) : null)];
+  } else {
+    const prot = pickFresh(inSlot(pool, letter, ["protein", "dairy"]).filter(f => f.p >= 8)) || pickFresh(inSlot(pool, letter, ["protein"]));
+    picks = [prot, pickFresh(inSlot(pool, letter, ["grain"])), pickFresh(inSlot(pool, letter, ["veg"])), (Math.random() < 0.5 ? pickFresh(inSlot(pool, letter, ["fat"])) : null)];
   }
-  const items = picks.filter(Boolean).map(fd => { usedIds.add(fd.id); return { id: fd.id, servings: 1 }; });
+
+  const seen = new Set();
+  const items = picks.filter(fd => fd && !seen.has(fd.id) && seen.add(fd.id)).map(fd => { usedIds.add(fd.id); return { id: fd.id, servings: 1 }; });
   return scaleToBudget(items, budget);
 }
 function itemMacros(it) {
@@ -1011,11 +1110,23 @@ function itemMacros(it) {
 function sumMacros(items) {
   return items.reduce((t, it) => { const m = itemMacros(it); t.cal += m.cal; t.p += m.p; t.c += m.c; t.f += m.f; t.fiber += m.fiber; return t; }, { cal: 0, p: 0, c: 0, f: 0, fiber: 0 });
 }
-function buildDay(name, pool, target, split, minP) {
+function mealArch(meal) {
+  return meal.items.some(it => combineClass(FOOD_BY_ID[it.id]) === "starch") ? "starch" : "proteinfat";
+}
+function buildDay(name, pool, target, split, minP, combining) {
   const used = new Set();
-  const meals = split.map(([label, frac, letter]) => ({ slot: label, letter, items: buildMeal(pool, letter, target * frac, used) }));
-  // light protein nudge: if under minimum, bump the highest-protein item once
-  let day = { name, meals };
+  // When combining: make exactly one main meal a "starch" meal, the rest protein/fat,
+  // so the day still carries enough protein. Snack gets a random non-mixed archetype.
+  const mainIdx = split.map((s, i) => s[2] !== "S" ? i : -1).filter(i => i >= 0);
+  const starchMain = combining && mainIdx.length ? mainIdx[Math.floor(Math.random() * mainIdx.length)] : -1;
+  const meals = split.map(([label, frac, letter], i) => {
+    let arch;
+    if (combining) arch = letter === "S" ? (Math.random() < 0.5 ? "starch" : "proteinfat") : (i === starchMain ? "starch" : "proteinfat");
+    const items = buildMeal(pool, letter, target * frac, used, combining, arch);
+    return { slot: label, letter, items };
+  });
+  const day = { name, meals };
+  // light protein nudge if the day falls short
   const t = sumMacros(meals.flatMap(m => m.items));
   if (minP && t.p < minP * 0.85) {
     let best = null;
@@ -1035,14 +1146,14 @@ function generatePlan() {
   const target = tgt ? tgt.dailyTarget : 1800;
   const mins = minimums(target);
   const split = MEAL_SPLITS[prefs.mealsPerDay] || MEAL_SPLITS[3];
-  const days = DAY_NAMES.map(n => buildDay(n, pool, target, split, mins.protein));
-  S.mealPlan = { createdISO: todayISO(), target, minP: mins.protein, minFiber: mins.fiber, days };
+  const days = DAY_NAMES.map(n => buildDay(n, pool, target, split, mins.protein, prefs.foodCombining));
+  S.mealPlan = { createdISO: todayISO(), target, minP: mins.protein, minFiber: mins.fiber, combining: !!prefs.foodCombining, days };
   save();
 }
 function regenerateDay(idx) {
   const prefs = S.mealPrefs, pool = allowedFoods(prefs);
   const split = MEAL_SPLITS[prefs.mealsPerDay] || MEAL_SPLITS[3];
-  S.mealPlan.days[idx] = buildDay(DAY_NAMES[idx], pool, S.mealPlan.target, split, S.mealPlan.minP);
+  S.mealPlan.days[idx] = buildDay(DAY_NAMES[idx], pool, S.mealPlan.target, split, S.mealPlan.minP, S.mealPlan.combining);
   save();
 }
 function swapItem(dayIdx, mealIdx, itemIdx) {
@@ -1051,8 +1162,10 @@ function swapItem(dayIdx, mealIdx, itemIdx) {
   const it = meal.items[itemIdx];
   const cur = FOOD_BY_ID[it.id];
   const usedIds = new Set(S.mealPlan.days[dayIdx].meals.flatMap(m => m.items.map(x => x.id)));
-  const candidates = inSlot(pool, meal.letter, [cur.grp]).filter(fd => fd.id !== cur.id && !usedIds.has(fd.id));
-  const next = rand(candidates.length ? candidates : inSlot(pool, meal.letter, [cur.grp]).filter(fd => fd.id !== cur.id));
+  let candidates = inSlot(pool, meal.letter, [cur.grp]).filter(fd => fd.id !== cur.id);
+  if (S.mealPlan.combining) candidates = candidates.filter(fd => combineClass(fd) === combineClass(cur)); // keep the meal's combining valid
+  const notUsed = candidates.filter(fd => !usedIds.has(fd.id));
+  const next = rand(notUsed.length ? notUsed : candidates);
   if (!next) return;
   const oldCal = cur.cal * it.servings;
   meal.items[itemIdx] = { id: next.id, servings: clampServings(oldCal / next.cal || 1) };
@@ -1082,7 +1195,6 @@ function rMeals() {
     out += `<div class="note pri">Add a weigh-in and goal first so the plan can size portions to your target. <a href="#" data-go="weight">Log a weigh-in →</a></div>`;
   }
 
-  // preferences
   out += `<div class="card"><h3>Preferences</h3>
     <div class="grid grid-2">
       <label class="field"><span>Meals per day</span>
@@ -1104,6 +1216,8 @@ function rMeals() {
       <label class="field"><span>Also avoid (comma-separated)</span>
         <input type="text" id="mpAvoid" value="${esc((prefs.avoid || []).join(", "))}" placeholder="e.g. shrimp, mushrooms"></label>
     </div>
+    <label class="switch" style="margin-bottom:10px"><input type="checkbox" id="mpCombine" ${prefs.foodCombining ? "checked" : ""}> <strong>Food combining</strong> — keep starchy carbs separate from protein &amp; fat</label>
+    ${prefs.foodCombining ? `<div class="note" style="margin:0 0 14px"><strong>Food combining is on:</strong> every meal is built as either a <strong>🍚 starch meal</strong> (starchy carbs + veg/fruit) or a <strong>🍗 protein &amp; fat meal</strong> (protein/fat + veg/fruit) — never mixed. Turn it off for conventional mixed meals.</div>` : ""}
     <label class="switch" style="margin-bottom:14px"><input type="checkbox" id="mpLists" ${prefs.respectLists ? "checked" : ""}> Keep my Hot-Button &amp; "Can Do Without" foods out of the plan</label>
     <div class="btn-row"><button class="btn-primary" id="mpGen">${S.mealPlan ? "↻ Regenerate whole week" : "✨ Generate my week"}</button>
       ${S.mealPlan ? `<span style="align-self:center;font-size:12px;color:var(--muted)">created ${fmtDate(S.mealPlan.createdISO)}</span>` : ""}</div>
@@ -1111,7 +1225,7 @@ function rMeals() {
 
   if (S.mealPlan) {
     const plan = S.mealPlan;
-    out += `<div class="note pri" style="margin-bottom:16px">Target ≈ <strong>${plan.target.toLocaleString()} kcal/day</strong> · protein min <strong>${plan.minP} g</strong> · fiber min <strong>${plan.minFiber} g</strong>. Green means the day meets it.</div>`;
+    out += `<div class="note pri" style="margin-bottom:16px">Target ≈ <strong>${plan.target.toLocaleString()} kcal/day</strong> · protein min <strong>${plan.minP} g</strong> · fiber min <strong>${plan.minFiber} g</strong>${plan.combining ? " · <strong>food-combining</strong> on" : ""}. Green means the day meets it.</div>`;
     plan.days.forEach((day, di) => {
       const t = sumMacros(day.meals.flatMap(m => m.items));
       const calOk = Math.abs(t.cal - plan.target) <= plan.target * 0.1;
@@ -1121,7 +1235,8 @@ function rMeals() {
         <h3 style="margin:0">${day.name}</h3>
         <div class="btn-row"><button class="btn-sm" data-regenday="${di}">↻ Day</button><button class="btn-sm" data-copyday="${di}">＋ To Food Log</button></div></div>`;
       day.meals.forEach((m, mi) => {
-        out += `<div style="margin:10px 0 4px"><h4 style="color:var(--primary);margin-bottom:6px">${m.slot}</h4>`;
+        const tag = plan.combining ? (mealArch(m) === "starch" ? ` <span class="pos-tag pos-Stretch" style="margin-left:6px">🍚 starch</span>` : ` <span class="pos-tag pos-Contracted" style="margin-left:6px">🍗 protein &amp; fat</span>`) : "";
+        out += `<div style="margin:10px 0 4px"><h4 style="color:var(--primary);margin-bottom:6px">${m.slot}${tag}</h4>`;
         m.items.forEach((it, ii) => {
           const fd = FOOD_BY_ID[it.id], mac = itemMacros(it);
           out += `<div class="list-item" style="padding:8px 11px"><div class="grow">
@@ -1150,9 +1265,10 @@ function bindMeals() {
     S.mealPrefs.dairy = el("mpDairy").value;
     S.mealPrefs.avoid = el("mpAvoid").value.split(",").map(x => x.trim()).filter(Boolean);
     S.mealPrefs.respectLists = el("mpLists").checked;
+    S.mealPrefs.foodCombining = el("mpCombine").checked;
     save();
   };
-  ["mpMeals", "mpStyle", "mpDairy", "mpLists"].forEach(id => { const e = el(id); if (e) e.onchange = savePrefs; });
+  ["mpMeals", "mpStyle", "mpDairy", "mpLists", "mpCombine"].forEach(id => { const e = el(id); if (e) e.onchange = savePrefs; });
   el("mpGen").onclick = () => { savePrefs(); generatePlan(); render(); };
   document.querySelectorAll("[data-regenday]").forEach(b => b.onclick = () => { savePrefs(); regenerateDay(+b.dataset.regenday); render(); });
   document.querySelectorAll("[data-swap]").forEach(b => b.onclick = () => {
@@ -1558,7 +1674,42 @@ function bindLog() {
     S.foodLog[LOG_DATE] = (S.foodLog[LOG_DATE] || []).filter(e => e.id !== b.dataset.delf);
     save(); render();
   });
+  // USDA search
+  const runSearch = async () => {
+    const q = el("usdaQ").value.trim();
+    const box = el("usdaResults");
+    if (!q) return;
+    box.innerHTML = `<div class="empty">Searching…</div>`;
+    try {
+      const res = await fetch("/api/food-search?q=" + encodeURIComponent(q));
+      if (res.status === 503) { box.innerHTML = `<div class="note">Search isn't set up yet — the site owner needs to add a free USDA API key in Vercel (see the app's README). You can still add foods manually below.</div>`; return; }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const items = data.foods || [];
+      if (!items.length) { box.innerHTML = `<div class="empty">No matches. Try simpler words, or add it manually below.</div>`; return; }
+      USDA_CACHE = {};
+      box.innerHTML = items.map((f, i) => {
+        USDA_CACHE[i] = f;
+        return `<div class="list-item" style="padding:8px 11px"><div class="grow">
+          <div class="name">${esc(f.name)}</div>
+          <div class="meta">per ${esc(f.serv)} · ${Math.round(f.cal)} kcal · P ${Math.round(f.p)} · C ${Math.round(f.c)} · F ${Math.round(f.f)}${f.fiber ? " · Fib " + Math.round(f.fiber) : ""}</div></div>
+          <button class="btn-sm btn-primary" data-usdaadd="${i}">＋ Add</button></div>`;
+      }).join("");
+      box.querySelectorAll("[data-usdaadd]").forEach(btn => btn.onclick = () => {
+        const f = USDA_CACHE[+btn.dataset.usdaadd]; if (!f) return;
+        (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), name: f.name + " (" + f.serv + ")", cal: Math.round(f.cal), p: Math.round(f.p), c: Math.round(f.c), f: Math.round(f.f), fiber: Math.round(f.fiber) });
+        save();
+        btn.textContent = "✓ Added";
+        btn.disabled = true;
+      });
+    } catch (e) {
+      box.innerHTML = `<div class="note">Couldn't reach the search service. You can add foods manually below.</div>`;
+    }
+  };
+  if (el("usdaBtn")) el("usdaBtn").onclick = runSearch;
+  if (el("usdaQ")) el("usdaQ").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
 }
+let USDA_CACHE = {};
 
 function bindLists() {
   el("hbAdd").onclick = () => {

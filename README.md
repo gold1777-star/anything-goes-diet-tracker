@@ -57,3 +57,24 @@ Anything Goes Diet* by John Barban. Not affiliated with, endorsed by, or a
 substitute for the original program. Educational tool only — not medical or
 nutritional advice. Consult a healthcare professional before starting any
 weight-loss plan.
+
+## Food search (USDA FoodData Central)
+
+The **Food Log** has a "Search foods" box powered by the USDA FoodData Central
+database (hundreds of thousands of foods). It calls the serverless function
+`api/food-search.js`, which keeps the API key server-side (out of this repo).
+
+To enable it:
+1. Get a free API key (~1 min) at https://fdc.nal.usda.gov/api-key-signup.html
+2. In the Vercel project → **Settings → Environment Variables**, add:
+   - `USDA_API_KEY` = your key
+3. Redeploy. Until the key is set, the search box shows a friendly "not set up
+   yet" message and manual food entry still works.
+
+## Meal Plan
+
+The **Meal Plan** tab generates a flexible weekly plan from the built-in food
+database, scaling portions toward your calorie target while clearing your
+protein/fiber minimums. It includes an optional **food-combining** mode that
+builds each meal as either a starch meal (starchy carbs + veg/fruit) or a
+protein/fat meal (protein/fat + veg/fruit), never mixing the two.
