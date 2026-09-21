@@ -794,6 +794,36 @@ function rLog() {
       <span>${over ? Math.abs(tgt.dailyTarget - gCal).toLocaleString() + " over — even it out later this week" : (tgt.dailyTarget - gCal).toLocaleString() + " kcal left"}</span></div></div>`;
   }
 
+  // weekly totals — the book's #1 principle: think weekly, not daily
+  {
+    const weekMon = mondayOf(parseISO(iso));
+    const wk = { cal: 0, p: 0, c: 0, f: 0, fiber: 0, days: 0 };
+    for (let i = 0; i < 7; i++) {
+      const di = isoOf(addDays(weekMon, i)), t = dayTotals(di);
+      if (dayEntries(di).length) wk.days++;
+      wk.cal += t.cal; wk.p += t.p; wk.c += t.c; wk.f += t.f; wk.fiber += t.fiber;
+    }
+    const wkCal = guessedCal(wk.cal);
+    const weekTarget = tgt ? tgt.dailyTarget * 7 : null;
+    out += `<div class="card"><h3>📅 This week <span style="font-weight:400;color:var(--muted);font-size:12px">· ${fmtDate(isoOf(weekMon))} – ${fmtDate(isoOf(addDays(weekMon, 6)))}</span></h3>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">The book's #1 rule: judge yourself on the <strong>week</strong>, not the day. Totals across Mon–Sun.</p>
+      <div class="stat-row">
+        ${stat(wkCal.toLocaleString(), "Calories" + (S.settings.applyGuessing ? " (guessed)" : ""), "pri", weekTarget ? "target " + weekTarget.toLocaleString() : "")}
+        ${stat(Math.round(wk.p) + " g", "Protein")}
+        ${stat(Math.round(wk.c) + " g", "Carbs")}
+        ${stat(Math.round(wk.f) + " g", "Fat")}
+        ${stat(Math.round(wk.fiber) + " g", "Fiber")}
+      </div>`;
+    if (weekTarget) {
+      const wpct = Math.min(100, Math.round(wkCal / weekTarget * 100)), wover = wkCal > weekTarget;
+      out += `<div class="bar-track" style="margin-top:14px"><div class="bar-fill ${wover ? "over" : ""}" style="width:${wpct}%"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted)">
+        <span>${wkCal.toLocaleString()} / ${weekTarget.toLocaleString()} kcal this week</span>
+        <span>${wover ? Math.abs(weekTarget - wkCal).toLocaleString() + " over" : (weekTarget - wkCal).toLocaleString() + " kcal left"}</span></div>`;
+    }
+    out += `<div style="font-size:12px;color:var(--muted);margin-top:8px">${wk.days} of 7 days logged${wk.days ? " · avg " + guessedCal(wk.cal / wk.days).toLocaleString() + " kcal/logged day" : ""}</div></div>`;
+  }
+
   // favorites — foods you eat often, one-tap add
   out += `<div class="card"><h3>⭐ Favorites</h3>`;
   if (!S.favorites.length) {
@@ -815,6 +845,10 @@ function rLog() {
       <input type="text" id="usdaQ" placeholder="e.g. grilled chicken, greek salad, banana bread…">
       <button class="btn-primary" id="usdaBtn" style="flex:0 0 auto">Search</button>
       <button id="scanBtn" style="flex:0 0 auto" title="Scan a barcode with your camera">📷 Scan</button>
+    </div>
+    <div class="inline-inputs" style="margin-top:8px">
+      <input type="text" id="barcodeNum" inputmode="numeric" placeholder="…or type a barcode number (UPC/EAN)">
+      <button id="barcodeBtn" style="flex:0 0 auto">Look up</button>
     </div>
     <div id="usdaResults" style="margin-top:12px"></div>
   </div>
@@ -1816,6 +1850,10 @@ function bindLog() {
   // barcode scanner
   if (el("scanBtn")) el("scanBtn").onclick = openScanner;
   if (el("scanCancel")) el("scanCancel").onclick = stopScanner;
+  // manual barcode entry
+  const manualBarcode = () => { const v = el("barcodeNum").value.trim(); if (v) lookupBarcode(v); };
+  if (el("barcodeBtn")) el("barcodeBtn").onclick = manualBarcode;
+  if (el("barcodeNum")) el("barcodeNum").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); manualBarcode(); } };
 }
 
 /* ---- shared food-result rendering (search + barcode) ---- */
