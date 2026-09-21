@@ -796,23 +796,27 @@ function rLog() {
 
   // weekly totals — the book's #1 principle: think weekly, not daily
   {
+    const weekTotals = mon => {
+      const w = { cal: 0, p: 0, c: 0, f: 0, fiber: 0, days: 0 };
+      for (let i = 0; i < 7; i++) { const di = isoOf(addDays(mon, i)), t = dayTotals(di); if (dayEntries(di).length) w.days++; w.cal += t.cal; w.p += t.p; w.c += t.c; w.f += t.f; w.fiber += t.fiber; }
+      return w;
+    };
     const weekMon = mondayOf(parseISO(iso));
-    const wk = { cal: 0, p: 0, c: 0, f: 0, fiber: 0, days: 0 };
-    for (let i = 0; i < 7; i++) {
-      const di = isoOf(addDays(weekMon, i)), t = dayTotals(di);
-      if (dayEntries(di).length) wk.days++;
-      wk.cal += t.cal; wk.p += t.p; wk.c += t.c; wk.f += t.f; wk.fiber += t.fiber;
-    }
-    const wkCal = guessedCal(wk.cal);
+    const wk = weekTotals(weekMon);
+    const last = weekTotals(addDays(weekMon, -7));
+    const wkCal = guessedCal(wk.cal), lastCal = guessedCal(last.cal);
     const weekTarget = tgt ? tgt.dailyTarget * 7 : null;
+    const mins = tgt ? minimums(tgt.dailyTarget) : null;
+    const pGoal = mins ? mins.protein * 7 : null, fibGoal = mins ? mins.fiber * 7 : null;
+    const pMet = pGoal && wk.p >= pGoal, fibMet = fibGoal && wk.fiber >= fibGoal;
     out += `<div class="card"><h3>📅 This week <span style="font-weight:400;color:var(--muted);font-size:12px">· ${fmtDate(isoOf(weekMon))} – ${fmtDate(isoOf(addDays(weekMon, 6)))}</span></h3>
       <p style="font-size:12px;color:var(--muted);margin:0 0 12px">The book's #1 rule: judge yourself on the <strong>week</strong>, not the day. Totals across Mon–Sun.</p>
       <div class="stat-row">
         ${stat(wkCal.toLocaleString(), "Calories" + (S.settings.applyGuessing ? " (guessed)" : ""), "pri", weekTarget ? "target " + weekTarget.toLocaleString() : "")}
-        ${stat(Math.round(wk.p) + " g", "Protein")}
+        ${stat(Math.round(wk.p) + " g", "Protein " + (pMet ? "✅" : ""), pMet ? "pri" : "", pGoal ? "goal " + pGoal + " g" : "")}
         ${stat(Math.round(wk.c) + " g", "Carbs")}
         ${stat(Math.round(wk.f) + " g", "Fat")}
-        ${stat(Math.round(wk.fiber) + " g", "Fiber")}
+        ${stat(Math.round(wk.fiber) + " g", "Fiber " + (fibMet ? "✅" : ""), fibMet ? "pri" : "", fibGoal ? "goal " + fibGoal + " g" : "")}
       </div>`;
     if (weekTarget) {
       const wpct = Math.min(100, Math.round(wkCal / weekTarget * 100)), wover = wkCal > weekTarget;
@@ -821,7 +825,28 @@ function rLog() {
         <span>${wkCal.toLocaleString()} / ${weekTarget.toLocaleString()} kcal this week</span>
         <span>${wover ? Math.abs(weekTarget - wkCal).toLocaleString() + " over" : (weekTarget - wkCal).toLocaleString() + " kcal left"}</span></div>`;
     }
-    out += `<div style="font-size:12px;color:var(--muted);margin-top:8px">${wk.days} of 7 days logged${wk.days ? " · avg " + guessedCal(wk.cal / wk.days).toLocaleString() + " kcal/logged day" : ""}</div></div>`;
+    out += `<div style="font-size:12px;color:var(--muted);margin-top:8px">${wk.days} of 7 days logged${wk.days ? " · avg " + guessedCal(wk.cal / wk.days).toLocaleString() + " kcal/logged day" : ""}</div>`;
+    // vs last week
+    const dchip = (cur, prev, betterDown) => {
+      const diff = Math.round(cur - prev);
+      if (diff === 0) return `<span style="color:var(--muted)">—</span>`;
+      const up = diff > 0, color = betterDown == null ? "var(--muted)" : ((betterDown ? !up : up) ? "var(--primary)" : "var(--accent)");
+      return `<span style="color:${color};font-weight:600">${up ? "▲" : "▼"} ${Math.abs(diff).toLocaleString()}</span>`;
+    };
+    if (last.days) {
+      out += `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;font-size:12.5px;color:var(--muted)">
+        <div style="margin-bottom:6px">vs last week (${fmtDate(isoOf(addDays(weekMon, -7)))} – ${fmtDate(isoOf(addDays(weekMon, -1)))}, ${last.days}/7 logged):</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+          <span>Calories ${dchip(wkCal, lastCal, true)}</span>
+          <span>Protein ${dchip(wk.p, last.p, false)} g</span>
+          <span>Carbs ${dchip(wk.c, last.c, null)} g</span>
+          <span>Fat ${dchip(wk.f, last.f, null)} g</span>
+          <span>Fiber ${dchip(wk.fiber, last.fiber, false)} g</span>
+        </div></div>`;
+    } else {
+      out += `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;font-size:12.5px;color:var(--muted)">No data logged last week yet — the comparison will appear once you have a prior week.</div>`;
+    }
+    out += `</div>`;
   }
 
   // favorites — foods you eat often, one-tap add
