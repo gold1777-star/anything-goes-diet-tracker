@@ -808,14 +808,21 @@ function rLog() {
   }
   out += `</div>`;
 
-  // USDA-powered search (hundreds of thousands of foods) — looks up macros for you
-  out += `<div class="card"><h3>🔎 Search foods <span style="font-weight:400;color:var(--muted);font-size:12px">(USDA database)</span></h3>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Search a huge database and tap a result to add it — the calories &amp; macros fill in automatically.</p>
+  // Search (USDA) + barcode scan (Open Food Facts) — looks up macros for you
+  out += `<div class="card"><h3>🔎 Search or 📷 scan foods</h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Search a huge database, or scan a package barcode with your camera — the calories &amp; macros fill in automatically.</p>
     <div class="inline-inputs">
       <input type="text" id="usdaQ" placeholder="e.g. grilled chicken, greek salad, banana bread…">
       <button class="btn-primary" id="usdaBtn" style="flex:0 0 auto">Search</button>
+      <button id="scanBtn" style="flex:0 0 auto" title="Scan a barcode with your camera">📷 Scan</button>
     </div>
     <div id="usdaResults" style="margin-top:12px"></div>
+  </div>
+  <div id="scanOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;padding:16px">
+    <div style="color:#fff;font-weight:700;margin-bottom:10px">Scan a barcode</div>
+    <div id="reader" style="width:100%;max-width:420px;border-radius:12px;overflow:hidden"></div>
+    <div id="scanMsg" style="color:#eee;font-size:13px;margin-top:12px;text-align:center;max-width:420px;line-height:1.5"></div>
+    <button id="scanCancel" class="btn" style="margin-top:16px;background:#fff;color:#111;border-color:#fff">Cancel</button>
   </div>`;
 
   out += `<div class="card"><h3>Add food</h3>
@@ -1799,38 +1806,93 @@ function bindLog() {
       if (res.status === 503) { box.innerHTML = `<div class="note">Search isn't set up yet — the site owner needs to add a free USDA API key in Vercel (see the app's README). You can still add foods manually below.</div>`; return; }
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      const items = data.foods || [];
-      if (!items.length) { box.innerHTML = `<div class="empty">No matches. Try simpler words, or add it manually below.</div>`; return; }
-      USDA_CACHE = {};
-      box.innerHTML = items.map((f, i) => {
-        USDA_CACHE[i] = f;
-        return `<div class="list-item" style="padding:8px 11px"><div class="grow">
-          <div class="name">${esc(f.name)}</div>
-          <div class="meta">per ${esc(f.serv)} · ${Math.round(f.cal)} kcal · P ${Math.round(f.p)} · C ${Math.round(f.c)} · F ${Math.round(f.f)}${f.fiber ? " · Fib " + Math.round(f.fiber) : ""}</div></div>
-          <button class="btn-sm btn-primary" data-usdaadd="${i}">＋ Add</button>
-          <button class="x-btn" data-usdafav="${i}" title="Save to favorites">☆</button></div>`;
-      }).join("");
-      const usdaEntry = f => ({ name: f.name + " (" + f.serv + ")", cal: Math.round(f.cal), p: Math.round(f.p), c: Math.round(f.c), f: Math.round(f.f), fiber: Math.round(f.fiber) });
-      box.querySelectorAll("[data-usdaadd]").forEach(btn => btn.onclick = () => {
-        const f = USDA_CACHE[+btn.dataset.usdaadd]; if (!f) return;
-        (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), ...usdaEntry(f) });
-        save();
-        btn.textContent = "✓ Added";
-        btn.disabled = true;
-      });
-      box.querySelectorAll("[data-usdafav]").forEach(btn => btn.onclick = () => {
-        const f = USDA_CACHE[+btn.dataset.usdafav]; if (!f) return;
-        saveFavorite(usdaEntry(f));
-        btn.textContent = "★"; btn.style.color = "var(--star)"; btn.title = "Saved to favorites";
-      });
+      renderResults(box, data.foods || []);
     } catch (e) {
       box.innerHTML = `<div class="note">Couldn't reach the search service. You can add foods manually below.</div>`;
     }
   };
   if (el("usdaBtn")) el("usdaBtn").onclick = runSearch;
   if (el("usdaQ")) el("usdaQ").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } };
+  // barcode scanner
+  if (el("scanBtn")) el("scanBtn").onclick = openScanner;
+  if (el("scanCancel")) el("scanCancel").onclick = stopScanner;
 }
-let USDA_CACHE = {};
+
+/* ---- shared food-result rendering (search + barcode) ---- */
+let RESULT_CACHE = {};
+function foodEntry(f) {
+  return { name: f.name + (f.serv ? " (" + f.serv + ")" : ""), cal: Math.round(num(f.cal)), p: Math.round(num(f.p)), c: Math.round(num(f.c)), f: Math.round(num(f.f)), fiber: Math.round(num(f.fiber)) };
+}
+function renderResults(box, foods) {
+  if (!box) return;
+  RESULT_CACHE = {};
+  if (!foods || !foods.length) { box.innerHTML = `<div class="empty">No matches. Try simpler words, or add it manually below.</div>`; return; }
+  box.innerHTML = foods.map((f, i) => {
+    RESULT_CACHE[i] = f;
+    return `<div class="list-item" style="padding:8px 11px"><div class="grow">
+      <div class="name">${esc(f.name)}</div>
+      <div class="meta">per ${esc(f.serv)} · ${Math.round(num(f.cal))} kcal · P ${Math.round(num(f.p))} · C ${Math.round(num(f.c))} · F ${Math.round(num(f.f))}${f.fiber ? " · Fib " + Math.round(num(f.fiber)) : ""}</div></div>
+      <button class="btn-sm btn-primary" data-radd="${i}">＋ Add</button>
+      <button class="x-btn" data-rfav="${i}" title="Save to favorites">☆</button></div>`;
+  }).join("");
+  box.querySelectorAll("[data-radd]").forEach(btn => btn.onclick = () => {
+    const f = RESULT_CACHE[+btn.dataset.radd]; if (!f) return;
+    (S.foodLog[LOG_DATE] = S.foodLog[LOG_DATE] || []).push({ id: uid(), ...foodEntry(f) });
+    save(); btn.textContent = "✓ Added"; btn.disabled = true;
+  });
+  box.querySelectorAll("[data-rfav]").forEach(btn => btn.onclick = () => {
+    const f = RESULT_CACHE[+btn.dataset.rfav]; if (!f) return;
+    saveFavorite(foodEntry(f)); btn.textContent = "★"; btn.style.color = "var(--star)"; btn.title = "Saved to favorites";
+  });
+}
+
+/* ---- barcode scanner (camera) + Open Food Facts lookup ---- */
+let H5_SCANNER = null;
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("load failed")); document.head.appendChild(s); });
+}
+async function openScanner() {
+  const ov = el("scanOverlay"), msg = el("scanMsg"); if (!ov) return;
+  ov.style.display = "flex"; if (msg) msg.textContent = "Starting camera…";
+  try {
+    if (!window.Html5Qrcode) await loadScript("https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js");
+    H5_SCANNER = new Html5Qrcode("reader", { verbose: false });
+    await H5_SCANNER.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 280, height: 180 } },
+      (text) => { stopScanner(); lookupBarcode(text); },
+      () => {}
+    );
+    if (msg) msg.textContent = "Point your camera at the barcode on the package.";
+  } catch (e) {
+    if (msg) msg.textContent = "Couldn't start the camera. Make sure you allowed camera access — or just use Search / manual entry instead.";
+  }
+}
+async function stopScanner() {
+  try { if (H5_SCANNER) { await H5_SCANNER.stop(); H5_SCANNER.clear(); } } catch (e) {}
+  H5_SCANNER = null;
+  const ov = el("scanOverlay"); if (ov) ov.style.display = "none";
+}
+async function lookupBarcode(code) {
+  const digits = String(code).replace(/\D/g, "");
+  const box = el("usdaResults");
+  if (box) box.innerHTML = `<div class="empty">Looking up barcode ${esc(digits)}…</div>`;
+  if (!digits) { if (box) box.innerHTML = `<div class="note">That didn't look like a barcode. Try again, or use Search.</div>`; return; }
+  try {
+    const r = await fetch("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(digits) + ".json?fields=product_name,brands,serving_size,nutriments");
+    const d = await r.json();
+    if (d.status !== 1 || !d.product) { if (box) box.innerHTML = `<div class="note">Barcode <strong>${esc(digits)}</strong> isn't in the Open Food Facts database. Try the Search box or add it manually.</div>`; return; }
+    const p = d.product, n = p.nutriments || {};
+    const hasServ = n["energy-kcal_serving"] != null;
+    const serv = hasServ ? (p.serving_size || "1 serving") : "100 g";
+    const g = k => (hasServ ? n[k + "_serving"] : n[k + "_100g"]) || 0;
+    let name = [p.brands ? p.brands.split(",")[0].trim() : null, p.product_name].filter(Boolean).join(" — ") || ("Barcode " + digits);
+    if (name.length > 70) name = name.slice(0, 70) + "…";
+    renderResults(box, [{ name, serv, cal: g("energy-kcal"), p: g("proteins"), c: g("carbohydrates"), f: g("fat"), fiber: g("fiber") }]);
+  } catch (e) {
+    if (box) box.innerHTML = `<div class="note">Couldn't reach the food database. Try the Search box or add manually.</div>`;
+  }
+}
 // Save a food to favorites (dedupe by name, case-insensitive)
 function saveFavorite(fav) {
   const name = (fav.name || "").trim(); if (!name) return;
